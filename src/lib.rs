@@ -1,19 +1,26 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use regex::{Regex, Matches, Match};
+use regex::{Regex, Match};
+use image::GrayImage;
+use ab_glyph::FontRef;
 
 pub mod sat;
 
-pub struct WordOptions<'a> {
+pub struct Tokenizer<'a> {
+    regex: Regex,
     filter: HashSet<&'a str>,
     min_word_length: u32,
     exclude_numbers: bool,
     max_words: u32,
 }
 
-impl<'a> Default for WordOptions<'a> {
+impl<'a> Default for Tokenizer<'a> {
     fn default() -> Self {
-        WordOptions {
+        let regex = Regex::new("\\w[\\w']*")
+            .expect("Unable to compile tokenization regex");
+
+        Tokenizer {
+            regex,
             filter: HashSet::new(),
             min_word_length: 0,
             exclude_numbers: true,
@@ -22,10 +29,10 @@ impl<'a> Default for WordOptions<'a> {
     }
 }
 
-impl<'a> WordOptions<'a> {
-    // TODO: I don't even know if this is idiomatic at this point, but it works!
-    fn apply<'b>(&'b self, matches: Matches<'b, 'b>) -> Box<dyn Iterator<Item = Match<'b>> + 'b> {
-        let mut result: Box<dyn Iterator<Item = Match<'b>> + 'b> = Box::new(matches);
+impl<'a> Tokenizer<'a> {
+    fn tokenize(&'a self, text: &'a str) -> Box<dyn Iterator<Item=Match<'a>> + 'a> {
+        let mut result: Box<dyn Iterator<Item=Match<'a>> + 'a>
+            = Box::new(self.regex.find_iter(text));
 
         if self.max_words != 0 {
             result = Box::new(result.take(self.max_words as usize));
@@ -42,37 +49,51 @@ impl<'a> WordOptions<'a> {
 
         result
     }
-}
 
-pub fn get_word_frequencies<'a>(text: &'a str, word_regex: &'a Regex, options: &'a WordOptions<'a>) -> (HashMap<&'a str, usize>, usize) {
-    let mut frequencies = HashMap::new();
-    let mut max_freq = 0;
+    pub fn get_word_frequencies(&'a self, text: &'a str) -> (HashMap<&'a str, usize>, usize) {
+        let mut frequencies = HashMap::new();
+        let mut max_freq = 0;
 
-    let included_words = options.apply(word_regex.find_iter(text));
+        let included_words = self.tokenize(text);
 
-    for word in included_words {
-        let entry = frequencies.entry(word.as_str()).or_insert(0);
-        *entry += 1;
+        for word in included_words {
+            let entry = frequencies.entry(word.as_str()).or_insert(0);
+            *entry += 1;
 
-        if *entry > max_freq {
-            max_freq = *entry;
+            if *entry > max_freq {
+                max_freq = *entry;
+            }
         }
+
+        (frequencies, max_freq)
     }
 
-    (frequencies, max_freq)
+    pub fn get_normalized_word_frequencies(&'a self, text: &'a str) -> Vec<(&'a str, f32)> {
+        let (frequencies, max_freq) = self.get_word_frequencies(text);
+
+        let mut normalized: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
+            (*key, *val as f32 / max_freq as f32)
+        }).collect();
+
+        normalized.sort_unstable_by(|a, b| {
+            if a.1 != b.1 {
+                (b.1).partial_cmp(&a.1).unwrap()
+            }
+            else {
+                (b.0).partial_cmp(&a.0).unwrap()
+            }
+        });
+        normalized
+    }
 }
 
-pub fn get_normalized_word_frequencies<'a, 'b>(text: &'a str, word_regex: &'a Regex, options: &'a WordOptions<'a>) -> Vec<(&'a str, f32)> {
-    let (frequencies, max_freq) = get_word_frequencies(text, &word_regex, &options);
-
-    let mut normalized: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
-        (*key, *val as f32 / max_freq as f32)
-    }).collect();
-
-    normalized.sort_unstable_by(|a, b| {
-        (b.1).partial_cmp(&a.1).unwrap()
-    });
-    normalized
+struct WordCloud<'a> {
+    tokenization_options: Tokenizer<'a>,
+    mask_image: GrayImage,
+    font: FontRef<'a>,
+    min_font_size: f32,
+    max_font_size: f32,
+    font_step: f32,
 }
 
 #[cfg(test)]
@@ -81,11 +102,10 @@ mod tests {
 
     #[test]
     fn simple_word_frequencies() {
-        let pat = Regex::new("\\w[\\w']*").unwrap();
         let words = "A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood";
 
-        let options = WordOptions::default();
-        let frequencies = get_word_frequencies(words, &pat, &options);
+        let tokenizer = Tokenizer::default();
+        let frequencies = tokenizer.get_word_frequencies(words);
 
         let expected: HashMap<&str, usize> = vec![
             ("if", 1), ("a", 2), ("chuck", 3),

@@ -1,5 +1,5 @@
 use regex::Regex;
-use wcloud::{get_normalized_word_frequencies, WordOptions};
+use wcloud::Tokenizer;
 
 use image::{DynamicImage, Rgba, GenericImage, GenericImageView, GrayImage, Luma, Rgb, RgbImage};
 
@@ -42,11 +42,11 @@ certainly. Still, for that
 little while, we visited
 our possible life.";
     let exclude_words: HashSet<&str> = vec!["we"].into_iter().collect();
-    let options = WordOptions::default();
+    let tokenizer = Tokenizer::default();
     // let words = get_normalized_word_frequencies(text, pat, exclude_words);
-    let words = get_normalized_word_frequencies(text, &pat, &options);
+    let words = tokenizer.get_normalized_word_frequencies(text);
 
-    let mask_path: Option<&str> = Some("joshmask.png");
+    let mask_path: Option<&str> = Some("masks/joshmask.png");
     // let mask_path: Option<&str> = None;
 
     println!("Words: {:?}", words);
