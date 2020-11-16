@@ -92,7 +92,7 @@ our possible life.";
     'outer: for (word, freq) in &words {
 
         let mut rng = rand::thread_rng();
-        let should_rotate = rng.gen_ratio(9, 100);
+        let should_rotate = rng.gen_bool(9.0 / 100.0);
 
         let mut glyphs;
 
