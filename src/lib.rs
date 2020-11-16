@@ -2,9 +2,13 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use regex::{Regex, Match};
 use image::{GrayImage, Rgb, RgbImage, Luma};
-use ab_glyph::FontRef;
+use ab_glyph::{FontRef, PxScale, Point, point};
 
-pub mod sat;
+mod text;
+use text::GlyphData;
+mod sat;
+use sat::to_summed_area_table;
+use rand::{Rng, thread_rng};
 
 pub struct Tokenizer<'a> {
     regex: Regex,
@@ -87,35 +91,68 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-enum WordCloudSize {
-    FromSize { width: u32, height: u32 },
+pub struct Word<'font> {
+    font: &'font FontRef<'font>,
+    scale: PxScale,
+    glyphs: GlyphData,
+    rotated: bool,
+    position: Point,
+}
+// TODO: Figure out a better way to structure this
+pub enum WordCloudSize {
+    FromDimensions { width: u32, height: u32 },
     FromMask(GrayImage),
 }
 
-struct WordCloud<'a> {
+pub struct WordCloud<'a> {
     tokenizer: Tokenizer<'a>,
     background_color: Rgb<u8>,
     font: FontRef<'a>,
     min_font_size: f32,
-    max_font_size: f32,
+    max_font_size: Option<f32>,
     font_step: f32,
     word_margin: u32,
     word_rotate_chance: f64,
 }
 
-// TODO: This doesn't seem particularly efficient
-fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
-    buffer.as_raw().iter().map(|el| *el as u32).collect()
+impl<'a> Default for WordCloud<'a> {
+    fn default() -> Self {
+        let font = FontRef::try_from_slice(include_bytes!("../DejaVuSansMono.ttf")).unwrap();
+
+        WordCloud {
+            tokenizer: Tokenizer::default(),
+            background_color: Rgb([0, 0, 0]),
+            font,
+            min_font_size: 4.0,
+            max_font_size: None,
+            font_step: 1.0,
+            word_margin: 10,
+            word_rotate_chance: 0.10,
+        }
+    }
 }
 
 impl<'a> WordCloud<'a> {
-    fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
-        let frequencies = self.tokenizer.get_word_frequencies(text);
+    fn generate_from_word_positions(width: u32, height: u32, word_positions: Vec<Word>, background_color: Rgb<u8>) -> RgbImage {
+        let mut final_image_buffer = RgbImage::from_pixel(width, height, background_color);
+
+        for Word { font, scale, glyphs, rotated, position } in word_positions {
+            // println!("{:?} {:?} {:?} {:?} {:?}", font, scale, glyphs, rotated, position);
+            let col = random_color_rgb();
+            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, glyphs, &font, position, rotated, col);
+        }
+
+        final_image_buffer
+    }
+
+    pub fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
+        let words = self.tokenizer.get_normalized_word_frequencies(text);
 
         // TODO: Theres probably a cleaner way to do this
-        let (summed_area_table, gray_buffer) = match size {
-            WordCloudSize::FromSize { width, height } => {
+        let (mut summed_area_table, mut gray_buffer) = match size {
+            WordCloudSize::FromDimensions { width, height } => {
                 let buf = GrayImage::from_pixel(width, height, Luma([0]));
+                println!("Made the gray image buffer!");
                 (to_uint_vec(&buf), buf)
             },
             WordCloudSize::FromMask(image) => {
@@ -129,8 +166,85 @@ impl<'a> WordCloud<'a> {
             }
         };
 
-        RgbImage::new(10, 10)
+        let mut font_size = self.max_font_size
+            .unwrap_or(gray_buffer.height() as f32 * 0.90);
+
+        let mut final_words = Vec::with_capacity(words.len());
+
+        'outer: for (word, freq) in &words {
+
+            let mut rng = rand::thread_rng();
+            let should_rotate = rng.gen_bool(self.word_rotate_chance);
+
+            let mut glyphs;
+
+            let pos = loop {
+                glyphs = text::text_to_glyphs(word, &self.font, PxScale::from(font_size));
+                let rect = if !should_rotate {
+                    sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
+                }
+                else {
+                    sat::Rect { width: glyphs.height + self.word_margin, height: glyphs.width + self.word_margin }
+                };
+
+                if rect.width > gray_buffer.width() as u32 || rect.height > gray_buffer.height() as u32 {
+                    if font_size - self.font_step >= self.min_font_size && font_size - self.font_step > 0.0 {
+                        font_size -= self.font_step;
+                        continue;
+                    }
+                    else {
+                        break 'outer;
+                    }
+                }
+
+                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
+                    Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
+                    None => {
+                        if font_size - self.font_step >= self.min_font_size && font_size - self.font_step > 0.0 {
+                            font_size -= self.font_step;
+                        }
+                        else {
+                            break 'outer;
+                        }
+                    }
+                };
+            };
+            text::draw_glyphs_to_gray_buffer(&mut gray_buffer, glyphs.clone(), &self.font, pos, should_rotate, Luma([1]));
+
+            final_words.push(Word {
+                font: &self.font,
+                scale: PxScale::from(font_size),
+                glyphs: glyphs.clone(),
+                rotated: should_rotate,
+                position: pos
+            });
+            println!("Wrote \"{}\" at {:?}", word, pos);
+
+            summed_area_table = to_uint_vec(&gray_buffer);
+
+            // TODO: Do a partial sat like the Python implementation
+            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
+        }
+
+        // println!("{:?}", words);
+
+        WordCloud::generate_from_word_positions(gray_buffer.width(), gray_buffer.height(), final_words, self.background_color)
     }
+}
+
+fn random_color_rgb() -> Rgb<u8> {
+    let mut rng = thread_rng();
+
+    let r = rng.gen_range(40, 255);
+    let g = rng.gen_range(40, 255);
+    let b = rng.gen_range(40, 255);
+
+    Rgb([r, g, b])
+}
+
+// TODO: This doesn't seem particularly efficient
+fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
+    buffer.as_raw().iter().map(|el| *el as u32).collect()
 }
 
 #[cfg(test)]
