@@ -2,7 +2,6 @@ use ab_glyph::{point, Font, FontRef, FontVec, Glyph, Point, PxScale, PxScaleFont
 use image::flat::NormalForm::ImagePacked;
 use image::{DynamicImage, GenericImage, GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba, Primitive};
 
-use crate::sat::to_summed_area_table;
 #[derive(Clone, Debug)]
 pub struct GlyphData {
     pub glyphs: Vec<Glyph>,
@@ -16,7 +15,6 @@ pub fn text_to_glyphs(text: &str, font: &FontRef, scale: PxScale) -> GlyphData {
     let mut glyphs = Vec::new();
     layout_paragraph(scaled_font, point(0.0, 0.0), 9999.0, text, &mut glyphs);
 
-    // work out the layout size
     let glyphs_height = scaled_font.height().ceil() as u32;
     let glyphs_width = {
         let min_x = glyphs.first().unwrap().position.x;
@@ -54,7 +52,7 @@ pub fn draw_glyphs_to_rgb_buffer(
                     (y + point.x as u32 + bounds.min.y as u32, width + point.y as u32 - bounds.min.x as u32 - x)
                 };
 
-                let mut px = buffer.get_pixel_mut(final_x, final_y);
+                let px = buffer.get_pixel_mut(final_x, final_y);
                 px.apply2(&pixel, |first, second| {
                     ((first as f32 + second as f32 * v) as u32).min(255) as u8
                 });
@@ -89,7 +87,7 @@ pub fn draw_glyphs_to_gray_buffer(
                     (y + point.x as u32 + bounds.min.y as u32, width + point.y as u32 - bounds.min.x as u32 - x)
                 };
 
-                let mut px = buffer.get_pixel_mut(final_x, final_y);
+                let px = buffer.get_pixel_mut(final_x, final_y);
                 *px = Luma([255]);
             });
         }

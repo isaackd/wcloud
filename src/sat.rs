@@ -88,18 +88,18 @@ pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, r
 
 pub fn to_summed_area_table(table: &mut [u32], width: usize, height: usize) {
     // Sum each row
-    for row_index in 0..height {
+    for y in 0..height {
         // println!("{:?}", table);
-        for col_index in 1..width {
-            let el_index = row_index * width + col_index;
+        for x in 1..width {
+            let el_index = y * width + x;
             table[el_index] += table[el_index - 1];
         }
     }
 
     // Sum each column
-    for row_index in 1..height {
-        for col_index in 0..width {
-            let el_index = col_index + row_index * width;
+    for y in 1..height {
+        for x in 0..width {
+            let el_index = x + y * width;
             table[el_index] += table[el_index - width];
         }
     }
