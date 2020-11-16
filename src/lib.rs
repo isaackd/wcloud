@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use regex::{Regex, Match};
-use image::GrayImage;
+use image::{GrayImage, Rgb, RgbImage, Luma};
 use ab_glyph::FontRef;
 
 pub mod sat;
@@ -87,13 +87,50 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
+enum WordCloudSize {
+    FromSize { width: u32, height: u32 },
+    FromMask(GrayImage),
+}
+
 struct WordCloud<'a> {
-    tokenization_options: Tokenizer<'a>,
-    mask_image: GrayImage,
+    tokenizer: Tokenizer<'a>,
+    background_color: Rgb<u8>,
     font: FontRef<'a>,
     min_font_size: f32,
     max_font_size: f32,
     font_step: f32,
+    word_margin: u32,
+    word_rotate_chance: f64,
+}
+
+// TODO: This doesn't seem particularly efficient
+fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
+    buffer.as_raw().iter().map(|el| *el as u32).collect()
+}
+
+impl<'a> WordCloud<'a> {
+    fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
+        let frequencies = self.tokenizer.get_word_frequencies(text);
+
+        // TODO: Theres probably a cleaner way to do this
+        let (summed_area_table, gray_buffer) = match size {
+            WordCloudSize::FromSize { width, height } => {
+                let buf = GrayImage::from_pixel(width, height, Luma([0]));
+                (to_uint_vec(&buf), buf)
+            },
+            WordCloudSize::FromMask(image) => {
+                let mut table = to_uint_vec(&image);
+                sat::to_summed_area_table(
+                    &mut table,
+                    image.width() as usize,
+                    image.height() as usize
+                );
+                (table, image)
+            }
+        };
+
+        RgbImage::new(10, 10)
+    }
 }
 
 #[cfg(test)]
