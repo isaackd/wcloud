@@ -129,7 +129,19 @@ impl<'a> Default for WordCloud<'a> {
             font_step: 1.0,
             word_margin: 10,
             word_rotate_chance: 0.10,
+            relative_font_scaling: 0.5,
         }
+    }
+}
+
+fn check_font_size(font_size: &mut f32, font_step: f32, min_font_size: f32) -> bool {
+    let next_font_size = *font_size - font_step;
+    if next_font_size >= min_font_size && next_font_size > 0.0 {
+        *font_size = next_font_size;
+        true
+    }
+    else {
+        false
     }
 }
 
@@ -195,24 +207,13 @@ impl<'a> WordCloud<'a> {
                 };
 
                 if rect.width > gray_buffer.width() as u32 || rect.height > gray_buffer.height() as u32 {
-                    if font_size - self.font_step >= self.min_font_size && font_size - self.font_step > 0.0 {
-                        font_size -= self.font_step;
-                        continue;
-                    }
-                    else {
-                        break 'outer;
-                    }
+                    if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                 }
 
                 match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
                     Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
                     None => {
-                        if font_size - self.font_step >= self.min_font_size && font_size - self.font_step > 0.0 {
-                            font_size -= self.font_step;
-                        }
-                        else {
-                            break 'outer;
-                        }
+                        if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                     }
                 };
             };

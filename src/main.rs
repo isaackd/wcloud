@@ -35,7 +35,7 @@ our possible life.";
     // let mask_path = "masks/joshmask.png";
     // let mut mask_image = image::open(path).unwrap().to_luma();
 
-    let wordcloud_size = WordCloudSize::FromDimensions { width: 3000, height: 3000 };
+    let wordcloud_size = WordCloudSize::FromDimensions { width: 800, height: 400 };
     let wordcloud = WordCloud::default();
     let wordcloud = wordcloud.generate_from_text(text, wordcloud_size);
 
