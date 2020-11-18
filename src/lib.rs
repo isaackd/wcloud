@@ -113,11 +113,12 @@ pub struct WordCloud<'a> {
     font_step: f32,
     word_margin: u32,
     word_rotate_chance: f64,
+    relative_font_scaling: f32
 }
 
 impl<'a> Default for WordCloud<'a> {
     fn default() -> Self {
-        let font = FontRef::try_from_slice(include_bytes!("../DejaVuSansMono.ttf")).unwrap();
+        let font = FontRef::try_from_slice(include_bytes!("../fonts/DroidSansMono.ttf")).unwrap();
 
         WordCloud {
             tokenizer: Tokenizer::default(),
@@ -166,12 +167,18 @@ impl<'a> WordCloud<'a> {
             }
         };
 
+        let mut final_words = Vec::with_capacity(words.len());
+
         let mut font_size = self.max_font_size
             .unwrap_or(gray_buffer.height() as f32 * 0.90);
 
-        let mut final_words = Vec::with_capacity(words.len());
+        let mut last_freq = 1.0;
 
         'outer: for (word, freq) in &words {
+
+            if self.relative_font_scaling != 0.0 {
+                font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
+            }
 
             let mut rng = rand::thread_rng();
             let should_rotate = rng.gen_bool(self.word_rotate_chance);
@@ -224,6 +231,8 @@ impl<'a> WordCloud<'a> {
 
             // TODO: Do a partial sat like the Python implementation
             sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
+
+            last_freq = *freq;
         }
 
         // println!("{:?}", words);
