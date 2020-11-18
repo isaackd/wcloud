@@ -53,8 +53,9 @@ pub fn draw_glyphs_to_rgb_buffer(
                 };
 
                 let px = buffer.get_pixel_mut(final_x, final_y);
-                px.apply2(&pixel, |first, second| {
-                    ((first as f32 + second as f32 * v) as u32).min(255) as u8
+
+                px.apply2(&pixel, |old, new| {
+                    ((v * new as f32) + (1.0 - v) * old as f32) as u8
                 });
             });
         }
