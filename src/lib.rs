@@ -16,6 +16,7 @@ pub struct Tokenizer<'a> {
     min_word_length: u32,
     exclude_numbers: bool,
     max_words: u32,
+    repeat: bool,
 }
 
 impl<'a> Default for Tokenizer<'a> {
@@ -29,6 +30,7 @@ impl<'a> Default for Tokenizer<'a> {
             min_word_length: 0,
             exclude_numbers: true,
             max_words: 200,
+            repeat: false,
         }
     }
 }
@@ -54,7 +56,7 @@ impl<'a> Tokenizer<'a> {
         result
     }
 
-    pub fn get_word_frequencies(&'a self, text: &'a str) -> (HashMap<&'a str, usize>, usize) {
+    fn get_word_frequencies(&'a self, text: &'a str) -> (HashMap<&'a str, usize>, usize) {
         let mut frequencies = HashMap::new();
         let mut max_freq = 0;
 
@@ -75,11 +77,11 @@ impl<'a> Tokenizer<'a> {
     pub fn get_normalized_word_frequencies(&'a self, text: &'a str) -> Vec<(&'a str, f32)> {
         let (frequencies, max_freq) = self.get_word_frequencies(text);
 
-        let mut normalized: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
+        let mut normalized_freqs: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
             (*key, *val as f32 / max_freq as f32)
         }).collect();
 
-        normalized.sort_unstable_by(|a, b| {
+        normalized_freqs.sort_unstable_by(|a, b| {
             if a.1 != b.1 {
                 (b.1).partial_cmp(&a.1).unwrap()
             }
@@ -277,5 +279,32 @@ mod tests {
 
         assert_eq!(frequencies.0, expected);
         assert_eq!(frequencies.1, 3);
+    }
+
+    #[test]
+    fn simple_normalized_word_frequencies() {
+        let words = "A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood";
+
+        let tokenizer = Tokenizer::default()
+            .with_repeat(true)
+            .with_max_words(30);
+        let frequencies = tokenizer.get_normalized_word_frequencies(words);
+
+        println!("{:?}", frequencies);
+
+        let expected = vec![
+            ("woodchuck", 1.0), ("chuck", 1.0), ("wood", 0.6666667),
+            ("could", 0.6666667), ("as", 0.6666667), ("a", 0.6666667),
+            ("would", 0.33333334), ("much", 0.33333334), ("if", 0.33333334),
+            ("A", 0.33333334), ("woodchuck", 0.33333334), ("chuck", 0.33333334),
+            ("wood", 0.22222224), ("could", 0.22222224), ("as", 0.22222224),
+            ("a", 0.22222224), ("would", 0.11111112), ("much", 0.11111112),
+            ("if", 0.11111112), ("A", 0.11111112), ("woodchuck", 0.11111112),
+            ("chuck", 0.11111112), ("wood", 0.07407408), ("could", 0.07407408),
+            ("as", 0.07407408), ("a", 0.07407408), ("would", 0.03703704),
+            ("much", 0.03703704), ("if", 0.03703704), ("A", 0.03703704)
+        ];
+
+        assert_eq!(frequencies, expected);
     }
 }
