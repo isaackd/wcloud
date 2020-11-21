@@ -1,6 +1,5 @@
-use ab_glyph::{point, Font, FontRef, FontVec, Glyph, Point, PxScale, PxScaleFont, ScaleFont};
-use image::flat::NormalForm::ImagePacked;
-use image::{DynamicImage, GenericImage, GrayImage, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba, Primitive};
+use ab_glyph::{point, Font, FontRef, Glyph, Point, PxScale, ScaleFont};
+use image::{GrayImage, Luma, Pixel, Rgb, RgbImage};
 
 #[derive(Clone, Debug)]
 pub struct GlyphData {
@@ -68,7 +67,6 @@ pub fn draw_glyphs_to_gray_buffer(
     font: &FontRef,
     point: Point,
     rotate: bool,
-    pixel: Luma<u8>,
 ) {
     let width = glyph_data.width;
 
@@ -89,7 +87,7 @@ pub fn draw_glyphs_to_gray_buffer(
                 };
 
                 let px = buffer.get_pixel_mut(final_x, final_y);
-                *px = Luma([255]);
+                *px = Luma([1]);
             });
         }
     }
