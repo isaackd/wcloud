@@ -1,6 +1,12 @@
 // Naive implementation of a summed-area table
 // https://en.wikipedia.org/wiki/Summed-area_table
+// TODO: For some reason, encapsulating the SAT functionality in a struct makes it slower
+//   Changing it from using its table: Vec<u32> field directly to having the methods take a
+//   &[u32] instead speeds it up quite a bit but it's still a bit slower than the loose functions
+//   approach. Maybe something to do with using `self.field` syntax instead of having it passed into
+//   the function? I'm not good enough with asm to figure it out
 use rand::{thread_rng, Rng};
+use image::GrayImage;
 
 #[derive(Debug)]
 pub struct Region {
@@ -20,6 +26,57 @@ pub struct Rect {
 pub struct Point {
     pub x: u32,
     pub y: u32,
+}
+
+pub struct SummedAreaTable {
+    table: Vec<u32>,
+    width: u32,
+    height: u32,
+}
+
+fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
+    buffer.as_raw().iter().map(|el| *el as u32).collect()
+}
+
+impl SummedAreaTable {
+
+    pub fn new(base_image: &GrayImage, initial_sum: bool) -> Self {
+        let table = to_uint_vec(base_image);
+
+        let mut sat = SummedAreaTable {table, width: base_image.width(), height: base_image.height() };
+
+        if initial_sum {
+            sat.update(base_image);
+        }
+
+        sat
+    }
+
+    pub fn update(&mut self, base_image: &GrayImage) {
+        self.table = to_uint_vec(base_image);
+        // to_summed_area_table(&mut self.table, self.width as usize, self.height as usize);
+
+        // Sum each row
+        for y in 0..self.height {
+            // println!("{:?}", table);
+            for x in 1..self.width {
+                let el_index = (y * self.width + x) as usize;
+                self.table[el_index] += self.table[el_index - 1];
+            }
+        }
+
+        // Sum each column
+        for y in 1..self.height {
+            for x in 0..self.width {
+                let el_index = (x + y * self.width) as usize;
+                self.table[el_index] += self.table[el_index - self.width as usize];
+            }
+        }
+    }
+
+    pub fn find_space_for_rect(&self, table_width: u32, table_height: u32, rect: &Rect) -> Option<Point> {
+        find_space_for_rect(&self.table, self.width, self.height, rect)
+    }
 }
 
 // region: x, y, width, height
@@ -65,9 +122,10 @@ pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, r
         return None;
     }
 
-    let mut rng = thread_rng();
-    let chosen_point_index: u32 = rng.gen_range(0, available_points + 1);
-    // println!("Chose as point index: {}", chosen_point_index);
+    // let mut rng = thread_rng();
+    // let chosen_point_index: u32 = rng.gen_range(0, available_points + 1);
+    let chosen_point_index: u32 = 1;
+    println!("Chose as point index: {}", chosen_point_index);
     available_points = 0;
 
     for y in 0..max_y {

@@ -7,7 +7,7 @@ use ab_glyph::{FontRef, PxScale, Point, point};
 mod text;
 use text::GlyphData;
 mod sat;
-use sat::to_summed_area_table;
+use sat::SummedAreaTable;
 use rand::{Rng, thread_rng};
 
 pub struct Tokenizer<'a> {
@@ -89,7 +89,49 @@ impl<'a> Tokenizer<'a> {
                 (b.0).partial_cmp(&a.0).unwrap()
             }
         });
-        normalized
+
+        if self.repeat && normalized_freqs.len() < self.max_words as usize {
+            let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil() - 1.0) as u32;
+            let freqs_clone = normalized_freqs.clone();
+            let down_weight = normalized_freqs.last()
+                .expect("The normalized frequencies vec is empty")
+                .1;
+
+            for i in 1..=times_extend {
+                normalized_freqs.extend(
+                    freqs_clone.iter().map(|(word, freq)| {
+                        (*word, freq * down_weight.powf(i as f32))
+                    })
+                )
+            }
+        }
+
+        normalized_freqs
+    }
+
+    pub fn with_regex(mut self, value: Regex) -> Self {
+        self.regex = value;
+        self
+    }
+    pub fn with_filter(mut self, value: HashSet<&'a str>) -> Self {
+        self.filter = value;
+        self
+    }
+    pub fn with_min_word_length(mut self, value: u32) -> Self {
+        self.min_word_length = value;
+        self
+    }
+    pub fn with_exclude_numbers(mut self, value: bool) -> Self {
+        self.exclude_numbers = value;
+        self
+    }
+    pub fn with_max_words(mut self, value: u32) -> Self {
+        self.max_words = value;
+        self
+    }
+    pub fn with_repeat(mut self, value: bool) -> Self {
+        self.repeat = value;
+        self
     }
 }
 
@@ -164,22 +206,15 @@ impl<'a> WordCloud<'a> {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
         // TODO: Theres probably a cleaner way to do this
-        let (mut summed_area_table, mut gray_buffer) = match size {
+        let (mut gray_buffer, initial_sum) = match size {
             WordCloudSize::FromDimensions { width, height } => {
                 let buf = GrayImage::from_pixel(width, height, Luma([0]));
-                println!("Made the gray image buffer!");
-                (to_uint_vec(&buf), buf)
+                (buf, false)
             },
-            WordCloudSize::FromMask(image) => {
-                let mut table = to_uint_vec(&image);
-                sat::to_summed_area_table(
-                    &mut table,
-                    image.width() as usize,
-                    image.height() as usize
-                );
-                (table, image)
-            }
+            WordCloudSize::FromMask(image) => { (image, true) }
         };
+
+        let mut summed_area_table = SummedAreaTable::new(&gray_buffer, initial_sum);
 
         let mut final_words = Vec::with_capacity(words.len());
 
@@ -195,7 +230,8 @@ impl<'a> WordCloud<'a> {
             }
 
             let mut rng = rand::thread_rng();
-            let should_rotate = rng.gen_bool(self.word_rotate_chance);
+            // let should_rotate = rng.gen_bool(self.word_rotate_chance);
+            let should_rotate = false;
 
             let mut glyphs;
 
@@ -212,14 +248,14 @@ impl<'a> WordCloud<'a> {
                     if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                 }
 
-                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
+                match summed_area_table.find_space_for_rect(gray_buffer.width(), gray_buffer.height(), &rect) {
                     Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
                     None => {
                         if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                     }
                 };
             };
-            text::draw_glyphs_to_gray_buffer(&mut gray_buffer, glyphs.clone(), &self.font, pos, should_rotate, Luma([1]));
+            text::draw_glyphs_to_gray_buffer(&mut gray_buffer, glyphs.clone(), &self.font, pos, should_rotate);
 
             final_words.push(Word {
                 font: &self.font,
@@ -230,10 +266,8 @@ impl<'a> WordCloud<'a> {
             });
             println!("Wrote \"{}\" at {:?}", word, pos);
 
-            summed_area_table = to_uint_vec(&gray_buffer);
-
             // TODO: Do a partial sat like the Python implementation
-            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
+            summed_area_table.update(&gray_buffer);
 
             last_freq = *freq;
         }
