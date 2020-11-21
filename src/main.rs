@@ -5,18 +5,9 @@ use image::{DynamicImage, Rgba, GenericImage, GenericImageView, GrayImage, Luma,
 
 mod text;
 
-mod sat;
-use sat::{region_is_empty, Region};
-use std::fs;
-use ab_glyph::{point, FontRef, PxScale, Point};
-use rand::{Rng, thread_rng};
 use std::collections::HashSet;
 
-use std::time::{Duration, Instant};
-use text::GlyphData;
-
 fn main() {
-    let pat = Regex::new("\\w[\\w']*").unwrap();
     let text = "Of course it was a disaster.
 That unbearable, dearest secret
 has always been a disaster.
@@ -32,13 +23,14 @@ little while, we visited
 our possible life.";
     // let exclude_words: HashSet<&str> = vec!["we"].into_iter().collect();
 
-    // let mask_path = "masks/joshmask.png";
-    // let mut mask_image = image::open(path).unwrap().to_luma();
+    let mask_path = "masks/joshmask.png";
+    let mut mask_image = image::open(mask_path).unwrap().to_luma();
 
     let wordcloud_size = WordCloudSize::FromDimensions { width: 800, height: 400 };
+    // let wordcloud_size = WordCloudSize::FromMask(mask_image);
     let wordcloud = WordCloud::default();
     let wordcloud = wordcloud.generate_from_text(text, wordcloud_size);
 
-    wordcloud.save("output.png");
-
+    wordcloud.save("output.png")
+        .expect("Failed to save WordCloud image");
 }
