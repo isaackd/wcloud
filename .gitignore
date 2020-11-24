@@ -2,3 +2,4 @@ target/
 masks/
 perf.dat*
 .idea/
+output.*

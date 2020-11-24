@@ -7,7 +7,6 @@ use ab_glyph::{FontRef, PxScale, Point, point};
 mod text;
 use text::GlyphData;
 mod sat;
-use sat::SummedAreaTable;
 use rand::{Rng, thread_rng};
 
 pub struct Tokenizer<'a> {
@@ -205,16 +204,19 @@ impl<'a> WordCloud<'a> {
     pub fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
-        // TODO: Theres probably a cleaner way to do this
-        let (mut gray_buffer, initial_sum) = match size {
+        let (mut summed_area_table, mut gray_buffer) = match size {
             WordCloudSize::FromDimensions { width, height } => {
                 let buf = GrayImage::from_pixel(width, height, Luma([0]));
-                (buf, false)
+                (to_uint_vec(&buf), buf)
             },
-            WordCloudSize::FromMask(image) => { (image, true) }
+            WordCloudSize::FromMask(image) => {
+                let mut table = to_uint_vec(&image);
+                sat::to_summed_area_table(
+                    &mut table, image.width() as usize, image.height() as usize
+                );
+                (table, image)
+            }
         };
-
-        let mut summed_area_table = SummedAreaTable::new(&gray_buffer, initial_sum);
 
         let mut final_words = Vec::with_capacity(words.len());
 
@@ -248,7 +250,7 @@ impl<'a> WordCloud<'a> {
                     if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                 }
 
-                match summed_area_table.find_space_for_rect(gray_buffer.width(), gray_buffer.height(), &rect) {
+                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
                     Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
                     None => {
                         if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
@@ -267,7 +269,8 @@ impl<'a> WordCloud<'a> {
             println!("Wrote \"{}\" at {:?}", word, pos);
 
             // TODO: Do a partial sat like the Python implementation
-            summed_area_table.update(&gray_buffer);
+            summed_area_table = to_uint_vec(&gray_buffer);
+            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
 
             last_freq = *freq;
         }
