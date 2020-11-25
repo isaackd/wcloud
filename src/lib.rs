@@ -3,11 +3,13 @@ use std::collections::HashSet;
 use regex::{Regex, Match};
 use image::{GrayImage, Rgb, RgbImage, Luma};
 use ab_glyph::{FontRef, PxScale, Point, point};
+use palette::{Pixel, Srgb, Hsl, IntoColor, RgbHue};
 
 mod text;
 use text::GlyphData;
 mod sat;
 use rand::{Rng, thread_rng};
+use palette::encoding::Linear;
 
 pub struct Tokenizer<'a> {
     regex: Regex,
@@ -20,7 +22,7 @@ pub struct Tokenizer<'a> {
 
 impl<'a> Default for Tokenizer<'a> {
     fn default() -> Self {
-        let regex = Regex::new("\\w[\\w']*")
+        let regex = Regex::new("\\w[\\w']+")
             .expect("Unable to compile tokenization regex");
 
         Tokenizer {
@@ -34,6 +36,7 @@ impl<'a> Default for Tokenizer<'a> {
     }
 }
 
+// TODO: Combine same words with different cases and use the most common case
 impl<'a> Tokenizer<'a> {
     fn tokenize(&'a self, text: &'a str) -> Box<dyn Iterator<Item=Match<'a>> + 'a> {
         let mut result: Box<dyn Iterator<Item=Match<'a>> + 'a>
@@ -80,17 +83,18 @@ impl<'a> Tokenizer<'a> {
             (*key, *val as f32 / max_freq as f32)
         }).collect();
 
-        normalized_freqs.sort_unstable_by(|a, b| {
-            if a.1 != b.1 {
+        normalized_freqs.sort_by(|a, b| {
+            // if a.1 != b.1 {
                 (b.1).partial_cmp(&a.1).unwrap()
-            }
-            else {
-                (b.0).partial_cmp(&a.0).unwrap()
-            }
+            // }
+            // else {
+            //     (a.0).partial_cmp(b.0).unwrap()
+            // }
         });
 
         if self.repeat && normalized_freqs.len() < self.max_words as usize {
-            let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil() - 1.0) as u32;
+            let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil()) as u32 - 1;
+            println!("Times extend: {}, max_words: {}, freqs len: {}", times_extend, self.max_words, normalized_freqs.len());
             let freqs_clone = normalized_freqs.clone();
             let down_weight = normalized_freqs.last()
                 .expect("The normalized frequencies vec is empty")
@@ -113,6 +117,7 @@ impl<'a> Tokenizer<'a> {
         self
     }
     pub fn with_filter(mut self, value: HashSet<&'a str>) -> Self {
+        // TODO: Make filtering case-insensitive
         self.filter = value;
         self
     }
@@ -170,21 +175,52 @@ impl<'a> Default for WordCloud<'a> {
             min_font_size: 4.0,
             max_font_size: None,
             font_step: 1.0,
-            word_margin: 10,
+            word_margin: 2,
             word_rotate_chance: 0.10,
             relative_font_scaling: 0.5,
         }
     }
 }
 
-fn check_font_size(font_size: &mut f32, font_step: f32, min_font_size: f32) -> bool {
-    let next_font_size = *font_size - font_step;
-    if next_font_size >= min_font_size && next_font_size > 0.0 {
-        *font_size = next_font_size;
-        true
+// TODO: Macros can simplify this probably?
+impl<'a> WordCloud<'a> {
+    pub fn with_tokenizer(mut self, value: Tokenizer<'a>) -> Self {
+        self.tokenizer = value;
+        self
     }
-    else {
-        false
+    pub fn with_background_color(mut self, value: Rgb<u8>) -> Self {
+        self.background_color = value;
+        self
+    }
+    pub fn with_font(mut self, value: FontRef<'a>) -> Self {
+        self.font = value;
+        self
+    }
+    pub fn with_min_font_size(mut self, value: f32) -> Self {
+        assert!(value >= 0.0, "The minimum font size for a word cloud cannot be less than 0");
+        self.min_font_size = value;
+        self
+    }
+    pub fn with_max_font_size(mut self, value: Option<f32>) -> Self {
+        self.max_font_size = value;
+        self
+    }
+    pub fn with_font_step(mut self, value: f32) -> Self {
+        self.font_step = value;
+        self
+    }
+    pub fn with_word_margin(mut self, value: u32) -> Self {
+        self.word_margin = value;
+        self
+    }
+    pub fn with_word_rotate_chance(mut self, value: f64) -> Self {
+        self.word_rotate_chance = value;
+        self
+    }
+    pub fn with_relative_font_scaling(mut self, value: f32) -> Self {
+        assert!(value >= 0.0 && value <= 1.0, "Relative scaling must be between 0 and 1");
+        self.relative_font_scaling = value;
+        self
     }
 }
 
@@ -201,8 +237,22 @@ impl<'a> WordCloud<'a> {
         final_image_buffer
     }
 
+    fn check_font_size(font_size: &mut f32, font_step: f32, min_font_size: f32) -> bool {
+        let next_font_size = *font_size - font_step;
+        // println!("Stuck: {} {} {} {}", font_size, min_font_size, font_step, next_font_size);
+        if next_font_size >= min_font_size && next_font_size > 0.0 {
+            *font_size = next_font_size;
+            true
+        }
+        else {
+            false
+        }
+    }
+
     pub fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
+
+        // println!("amount of words: {:?} {:?}", words.len(), words);
 
         let (mut summed_area_table, mut gray_buffer) = match size {
             WordCloudSize::FromDimensions { width, height } => {
@@ -221,21 +271,28 @@ impl<'a> WordCloud<'a> {
         let mut final_words = Vec::with_capacity(words.len());
 
         let mut font_size = self.max_font_size
-            .unwrap_or(gray_buffer.height() as f32 * 0.90);
+            .unwrap_or(gray_buffer.height() as f32 * 0.95);
 
         let mut last_freq = 1.0;
 
+        println!("The amount of freqs: {}", words.len());
+
         'outer: for (word, freq) in &words {
 
-            if self.relative_font_scaling != 0.0 {
+            if !self.tokenizer.repeat && self.relative_font_scaling != 0.0 {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
             }
 
+            if font_size < self.min_font_size {
+                break;
+            }
+
             let mut rng = rand::thread_rng();
-            // let should_rotate = rng.gen_bool(self.word_rotate_chance);
-            let should_rotate = false;
+            let mut should_rotate = rng.gen_bool(self.word_rotate_chance);
 
             let mut glyphs;
+
+            let mut tried_rotate = false;
 
             let pos = loop {
                 glyphs = text::text_to_glyphs(word, &self.font, PxScale::from(font_size));
@@ -247,13 +304,19 @@ impl<'a> WordCloud<'a> {
                 };
 
                 if rect.width > gray_buffer.width() as u32 || rect.height > gray_buffer.height() as u32 {
-                    if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
+                    if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                 }
 
                 match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
                     Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
                     None => {
-                        if check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
+                        if !tried_rotate {
+                            should_rotate = true;
+                            tried_rotate = true;
+                        }
+                        else if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
+                            break 'outer;
+                        }
                     }
                 };
             };
@@ -266,7 +329,6 @@ impl<'a> WordCloud<'a> {
                 rotated: should_rotate,
                 position: pos
             });
-            println!("Wrote \"{}\" at {:?}", word, pos);
 
             // TODO: Do a partial sat like the Python implementation
             summed_area_table = to_uint_vec(&gray_buffer);
@@ -274,6 +336,8 @@ impl<'a> WordCloud<'a> {
 
             last_freq = *freq;
         }
+
+        println!("{}", final_words.len());
 
         // println!("{:?}", words);
 
@@ -284,11 +348,21 @@ impl<'a> WordCloud<'a> {
 fn random_color_rgb() -> Rgb<u8> {
     let mut rng = thread_rng();
 
-    let r = rng.gen_range(40, 255);
-    let g = rng.gen_range(40, 255);
-    let b = rng.gen_range(40, 255);
+    let hue = rng.gen_range(0.0, 255.0);
 
-    Rgb([r, g, b])
+    // TODO: Python uses 0.8 for the saturation but it looks too washed out when used here
+    //   Maybe something to do with the linear stuff?
+    //   https://github.com/python-pillow/Pillow/blob/66209168847ad1b55190a629b49cc6ba829efe92/src/PIL/ImageColor.py#L83
+    let col = Hsl::new(hue, 1.0, 0.5)
+        .into_rgb();
+
+    let col = col.into_linear();
+
+    let raw: [u8; 3] = Srgb::from_linear(col)
+        .into_format()
+        .into_raw();
+
+    Rgb(raw)
 }
 
 // TODO: This doesn't seem particularly efficient
