@@ -1,6 +1,6 @@
 // Naive implementation of a summed-area table
 // https://en.wikipedia.org/wiki/Summed-area_table
-use rand::{thread_rng, Rng};
+use rand::{Rng, rngs::StdRng};
 
 #[derive(Debug)]
 pub struct Region {
@@ -33,7 +33,7 @@ pub fn region_is_empty(table: &[u32], table_width: u32, region: &Region) -> bool
     tl as i32 + br as i32 - tr as i32 - bl as i32 == 0
 }
 
-pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, rect: &Rect) -> Option<Point> {
+pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, rect: &Rect, rng: &mut StdRng) -> Option<Point> {
     // TODO: Determine whether there's a better way to get a random point
     //  It is not feasible to store all the points because there can be way too many
     //  on larger images and smaller regions
@@ -65,7 +65,6 @@ pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, r
         return None;
     }
 
-    let mut rng = thread_rng();
     let chosen_point_index: u32 = rng.gen_range(0, available_points + 1);
     // println!("Chose as point index: {}", chosen_point_index);
     available_points = 0;

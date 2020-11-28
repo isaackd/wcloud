@@ -3,13 +3,14 @@ use std::collections::HashSet;
 use regex::{Regex, Match};
 use image::{GrayImage, Rgb, RgbImage, Luma};
 use ab_glyph::{FontRef, PxScale, Point, point};
-use palette::{Pixel, Srgb, Hsl, IntoColor, RgbHue};
+use palette::{Pixel, Srgb, Hsl, IntoColor};
+use std::process::exit;
 
 mod text;
 use text::GlyphData;
 mod sat;
-use rand::{Rng, thread_rng};
-use palette::encoding::Linear;
+use rand::{Rng, thread_rng, SeedableRng};
+use rand::rngs::StdRng;
 
 pub struct Tokenizer<'a> {
     regex: Regex,
@@ -79,22 +80,26 @@ impl<'a> Tokenizer<'a> {
     pub fn get_normalized_word_frequencies(&'a self, text: &'a str) -> Vec<(&'a str, f32)> {
         let (frequencies, max_freq) = self.get_word_frequencies(text);
 
+        if frequencies.is_empty() {
+            return Vec::new();
+        }
+
         let mut normalized_freqs: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
             (*key, *val as f32 / max_freq as f32)
         }).collect();
 
         normalized_freqs.sort_by(|a, b| {
-            // if a.1 != b.1 {
+            if a.1 != b.1 {
                 (b.1).partial_cmp(&a.1).unwrap()
-            // }
-            // else {
-            //     (a.0).partial_cmp(b.0).unwrap()
-            // }
+            }
+            else {
+                (a.0).partial_cmp(b.0).unwrap()
+            }
         });
 
         if self.repeat && normalized_freqs.len() < self.max_words as usize {
             let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil()) as u32 - 1;
-            println!("Times extend: {}, max_words: {}, freqs len: {}", times_extend, self.max_words, normalized_freqs.len());
+            // println!("Times extend: {}, max_words: {}, freqs len: {}", times_extend, self.max_words, normalized_freqs.len());
             let freqs_clone = normalized_freqs.clone();
             let down_weight = normalized_freqs.last()
                 .expect("The normalized frequencies vec is empty")
@@ -140,12 +145,14 @@ impl<'a> Tokenizer<'a> {
 }
 
 pub struct Word<'font> {
+    text: &'font str,
     font: &'font FontRef<'font>,
-    scale: PxScale,
+    font_size: PxScale,
     glyphs: GlyphData,
     rotated: bool,
     position: Point,
 }
+
 // TODO: Figure out a better way to structure this
 pub enum WordCloudSize {
     FromDimensions { width: u32, height: u32 },
@@ -161,7 +168,8 @@ pub struct WordCloud<'a> {
     font_step: f32,
     word_margin: u32,
     word_rotate_chance: f64,
-    relative_font_scaling: f32
+    relative_font_scaling: f32,
+    rng_seed: Option<u64>,
 }
 
 impl<'a> Default for WordCloud<'a> {
@@ -178,6 +186,7 @@ impl<'a> Default for WordCloud<'a> {
             word_margin: 2,
             word_rotate_chance: 0.10,
             relative_font_scaling: 0.5,
+            rng_seed: None,
         }
     }
 }
@@ -222,15 +231,37 @@ impl<'a> WordCloud<'a> {
         self.relative_font_scaling = value;
         self
     }
+    pub fn with_rng_seed(mut self, value: u64) -> Self {
+        self.rng_seed.replace(value);
+        self
+    }
 }
 
 impl<'a> WordCloud<'a> {
-    fn generate_from_word_positions(width: u32, height: u32, word_positions: Vec<Word>, background_color: Rgb<u8>) -> RgbImage {
-        let mut final_image_buffer = RgbImage::from_pixel(width, height, background_color);
+    fn generate_from_word_positions(rng: &mut StdRng, width: u32, height: u32, word_positions: Vec<Word>, scale: f32, background_color: Rgb<u8>) -> RgbImage {
+        // TODO: Refactor this so that we can fail earlier
+        if scale < 0.0 || scale > 100.0 {
+            // TODO: Idk if this is good practice
+            // println!("The scale must be between 0 and 100 (both exclusive)");
+            exit(1);
+        }
 
-        for Word { font, scale, glyphs, rotated, position } in word_positions {
+        let mut final_image_buffer = RgbImage::from_pixel((width as f32 * scale) as u32, (height as f32 * scale) as u32, background_color);
+
+        for Word { text, font, mut font_size, mut glyphs, rotated, mut position } in word_positions {
             // println!("{:?} {:?} {:?} {:?} {:?}", font, scale, glyphs, rotated, position);
-            let col = random_color_rgb();
+            let col = random_color_rgb(rng);
+
+            if scale != 1.0 {
+                font_size.x *= scale;
+                font_size.y *= scale;
+
+                position.x *= scale;
+                position.y *= scale;
+
+                glyphs = text::text_to_glyphs(text, &font, font_size);
+            }
+
             text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, glyphs, &font, position, rotated, col);
         }
 
@@ -249,7 +280,7 @@ impl<'a> WordCloud<'a> {
         }
     }
 
-    pub fn generate_from_text(&self, text: &str, size: WordCloudSize) -> RgbImage {
+    pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
         // println!("amount of words: {:?} {:?}", words.len(), words);
@@ -275,7 +306,12 @@ impl<'a> WordCloud<'a> {
 
         let mut last_freq = 1.0;
 
-        println!("The amount of freqs: {}", words.len());
+        let mut rng = match self.rng_seed {
+            Some(seed) => StdRng::seed_from_u64(seed),
+            None => StdRng::from_rng(thread_rng()).unwrap()
+        };
+
+        // println!("The amount of freqs: {}", words.len());
 
         'outer: for (word, freq) in &words {
 
@@ -287,7 +323,6 @@ impl<'a> WordCloud<'a> {
                 break;
             }
 
-            let mut rng = rand::thread_rng();
             let mut should_rotate = rng.gen_bool(self.word_rotate_chance);
 
             let mut glyphs;
@@ -307,7 +342,7 @@ impl<'a> WordCloud<'a> {
                     if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
                 }
 
-                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect) {
+                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect, &mut rng) {
                     Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
                     None => {
                         if !tried_rotate {
@@ -323,8 +358,9 @@ impl<'a> WordCloud<'a> {
             text::draw_glyphs_to_gray_buffer(&mut gray_buffer, glyphs.clone(), &self.font, pos, should_rotate);
 
             final_words.push(Word {
+                text: word,
                 font: &self.font,
-                scale: PxScale::from(font_size),
+                font_size: PxScale::from(font_size),
                 glyphs: glyphs.clone(),
                 rotated: should_rotate,
                 position: pos
@@ -337,21 +373,19 @@ impl<'a> WordCloud<'a> {
             last_freq = *freq;
         }
 
-        println!("{}", final_words.len());
+        // println!("{}", final_words.len());
 
         // println!("{:?}", words);
 
-        WordCloud::generate_from_word_positions(gray_buffer.width(), gray_buffer.height(), final_words, self.background_color)
+        WordCloud::generate_from_word_positions(&mut rng, gray_buffer.width(), gray_buffer.height(), final_words, scale, self.background_color)
     }
 }
 
-fn random_color_rgb() -> Rgb<u8> {
-    let mut rng = thread_rng();
-
+fn random_color_rgb(rng: &mut StdRng) -> Rgb<u8> {
     let hue = rng.gen_range(0.0, 255.0);
-
     // TODO: Python uses 0.8 for the saturation but it looks too washed out when used here
     //   Maybe something to do with the linear stuff?
+    //   It's not really a problem just curious
     //   https://github.com/python-pillow/Pillow/blob/66209168847ad1b55190a629b49cc6ba829efe92/src/PIL/ImageColor.py#L83
     let col = Hsl::new(hue, 1.0, 0.5)
         .into_rgb();
@@ -401,7 +435,7 @@ mod tests {
             .with_max_words(30);
         let frequencies = tokenizer.get_normalized_word_frequencies(words);
 
-        println!("{:?}", frequencies);
+        // println!("{:?}", frequencies);
 
         let expected = vec![
             ("woodchuck", 1.0), ("chuck", 1.0), ("wood", 0.6666667),
