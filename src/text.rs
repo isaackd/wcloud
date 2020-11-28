@@ -1,4 +1,4 @@
-use ab_glyph::{point, Font, FontRef, Glyph, Point, PxScale, ScaleFont};
+use ab_glyph::{point, Font, FontRef, Glyph, Point, PxScale, ScaleFont, FontVec};
 use image::{GrayImage, Luma, Pixel, Rgb, RgbImage};
 
 #[derive(Clone, Debug)]
@@ -8,7 +8,7 @@ pub struct GlyphData {
     pub height: u32,
 }
 
-pub fn text_to_glyphs(text: &str, font: &FontRef, scale: PxScale) -> GlyphData {
+pub fn text_to_glyphs(text: &str, font: &FontVec, scale: PxScale) -> GlyphData {
     let scaled_font = font.as_scaled(scale);
 
     let mut glyphs = Vec::new();
@@ -32,7 +32,7 @@ pub fn text_to_glyphs(text: &str, font: &FontRef, scale: PxScale) -> GlyphData {
 pub fn draw_glyphs_to_rgb_buffer(
     buffer: &mut RgbImage,
     glyph_data: GlyphData,
-    font: &FontRef,
+    font: &FontVec,
     point: Point,
     rotate: bool,
     pixel: Rgb<u8>,
@@ -64,7 +64,7 @@ pub fn draw_glyphs_to_rgb_buffer(
 pub fn draw_glyphs_to_gray_buffer(
     buffer: &mut GrayImage,
     glyph_data: GlyphData,
-    font: &FontRef,
+    font: &FontVec,
     point: Point,
     rotate: bool,
 ) {

@@ -6,7 +6,7 @@ use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
 use image::ColorType;
-use ab_glyph::{FontVec, FontRef};
+use ab_glyph::FontVec;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -194,12 +194,12 @@ fn main() {
         );
     }
 
-    let mut font_file = None;
-
     if let Some(font_path) = matches.value_of("font") {
-        font_file = Some(fs::read(font_path).expect("Unable to read font file"));
+        let font_file = fs::read(font_path)
+            .expect("Unable to read font file");
+
         wordcloud = wordcloud.with_font(
-            FontRef::try_from_slice(font_file.unwrap().as_slice())
+            FontVec::try_from_vec(font_file)
                 .expect("Font file may be invalid")
         );
     }
@@ -215,7 +215,8 @@ fn main() {
     }
     else {
         let mut buffer = String::new();
-        let stdin = io::stdin().read_to_string(&mut buffer);
+        io::stdin().read_to_string(&mut buffer)
+            .expect("Unable to read stdin");
 
         buffer
     };

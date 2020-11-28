@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use regex::{Regex, Match};
 use image::{GrayImage, Rgb, RgbImage, Luma};
-use ab_glyph::{FontRef, PxScale, Point, point};
+use ab_glyph::{FontRef, PxScale, Point, point, FontVec};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use std::process::exit;
 
@@ -144,9 +144,9 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-pub struct Word<'font> {
-    text: &'font str,
-    font: &'font FontRef<'font>,
+pub struct Word<'a> {
+    text: &'a str,
+    font: &'a FontVec,
     font_size: PxScale,
     glyphs: GlyphData,
     rotated: bool,
@@ -162,7 +162,7 @@ pub enum WordCloudSize {
 pub struct WordCloud<'a> {
     tokenizer: Tokenizer<'a>,
     background_color: Rgb<u8>,
-    font: FontRef<'a>,
+    font: FontVec,
     min_font_size: f32,
     max_font_size: Option<f32>,
     font_step: f32,
@@ -174,7 +174,7 @@ pub struct WordCloud<'a> {
 
 impl<'a> Default for WordCloud<'a> {
     fn default() -> Self {
-        let font = FontRef::try_from_slice(include_bytes!("../fonts/DroidSansMono.ttf")).unwrap();
+        let font = FontVec::try_from_vec(include_bytes!("../fonts/DroidSansMono.ttf").to_vec()).unwrap();
 
         WordCloud {
             tokenizer: Tokenizer::default(),
@@ -201,7 +201,7 @@ impl<'a> WordCloud<'a> {
         self.background_color = value;
         self
     }
-    pub fn with_font(mut self, value: FontRef<'a>) -> Self {
+    pub fn with_font(mut self, value: FontVec) -> Self {
         self.font = value;
         self
     }
