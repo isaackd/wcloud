@@ -1,4 +1,4 @@
-use ab_glyph::{point, Font, FontRef, Glyph, Point, PxScale, ScaleFont, FontVec};
+use ab_glyph::{point, Font, Glyph, Point, PxScale, ScaleFont, FontVec};
 use image::{GrayImage, Luma, Pixel, Rgb, RgbImage};
 
 #[derive(Clone, Debug)]
@@ -96,7 +96,7 @@ pub fn draw_glyphs_to_gray_buffer(
 pub fn layout_paragraph<F, SF>(
     font: SF,
     position: Point,
-    max_width: f32,
+    _max_width: f32,
     text: &str,
     target: &mut Vec<Glyph>,
 ) where

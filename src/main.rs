@@ -1,12 +1,16 @@
 use std::io::{self, Read, stdout};
-use wcloud::{Tokenizer, WordCloud, WordCloudSize};
+use wcloud::{Tokenizer, WordCloud, WordCloudSize, Word};
 use clap::{Arg, App};
 use regex::Regex;
 use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
-use image::ColorType;
+use image::{ColorType, Rgb};
 use ab_glyph::FontVec;
+use rand::rngs::StdRng;
+use rand::Rng;
+use palette::{Pixel, Srgb, Hsl, IntoColor};
+
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -128,7 +132,6 @@ fn main() {
         tokenizer = tokenizer.with_filter(exclude_words);
     }
 
-
     let wordcloud_size = match matches.value_of("mask") {
         Some(mask_path) => {
             let mask_image = image::open(mask_path).unwrap().to_luma();
@@ -236,7 +239,6 @@ fn main() {
 // little while, we visited
 // our possible life.";
 
-
     let wordcloud_image = wordcloud.generate_from_text(&text, wordcloud_size, scale);
 
     if let Some(file_path) = matches.value_of("output") {
@@ -245,7 +247,10 @@ fn main() {
     }
     else {
         let encoder = PngEncoder::new(stdout());
-        encoder.encode(wordcloud_image.as_raw(), wordcloud_image.width(), wordcloud_image.height(), ColorType::Rgb8)
+
+        let width = wordcloud_image.width();
+        let height = wordcloud_image.height();
+        encoder.encode(wordcloud_image.as_raw(), width, height, ColorType::Rgb8)
             .expect("Failed to save WordCloud image");
     }
 }

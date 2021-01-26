@@ -1,148 +1,16 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use regex::{Regex, Match};
 use image::{GrayImage, Rgb, RgbImage, Luma};
-use ab_glyph::{FontRef, PxScale, Point, point, FontVec};
+use ab_glyph::{PxScale, Point, point, FontVec};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use std::process::exit;
 
 mod text;
 use text::GlyphData;
 mod sat;
+mod tokenizer;
+pub use tokenizer::Tokenizer;
+
 use rand::{Rng, thread_rng, SeedableRng};
 use rand::rngs::StdRng;
-
-pub struct Tokenizer<'a> {
-    regex: Regex,
-    filter: HashSet<&'a str>,
-    min_word_length: u32,
-    exclude_numbers: bool,
-    max_words: u32,
-    repeat: bool,
-}
-
-impl<'a> Default for Tokenizer<'a> {
-    fn default() -> Self {
-        let regex = Regex::new("\\w[\\w']+")
-            .expect("Unable to compile tokenization regex");
-
-        Tokenizer {
-            regex,
-            filter: HashSet::new(),
-            min_word_length: 0,
-            exclude_numbers: true,
-            max_words: 200,
-            repeat: false,
-        }
-    }
-}
-
-// TODO: Combine same words with different cases and use the most common case
-impl<'a> Tokenizer<'a> {
-    fn tokenize(&'a self, text: &'a str) -> Box<dyn Iterator<Item=Match<'a>> + 'a> {
-        let mut result: Box<dyn Iterator<Item=Match<'a>> + 'a>
-            = Box::new(self.regex.find_iter(text));
-
-        if self.max_words != 0 {
-            result = Box::new(result.take(self.max_words as usize));
-        }
-        if !self.filter.is_empty() {
-            result = Box::new(result.filter(move |word| !self.filter.contains(word.as_str())));
-        }
-        if self.min_word_length > 0 {
-            result = Box::new(result.filter(move |word| word.as_str().len() >= self.min_word_length as usize));
-        }
-        if self.exclude_numbers {
-            result = Box::new(result.filter(move |word| !word.as_str().chars().all(char::is_numeric)));
-        }
-
-        result
-    }
-
-    fn get_word_frequencies(&'a self, text: &'a str) -> (HashMap<&'a str, usize>, usize) {
-        let mut frequencies = HashMap::new();
-        let mut max_freq = 0;
-
-        let included_words = self.tokenize(text);
-
-        for word in included_words {
-            let entry = frequencies.entry(word.as_str()).or_insert(0);
-            *entry += 1;
-
-            if *entry > max_freq {
-                max_freq = *entry;
-            }
-        }
-
-        (frequencies, max_freq)
-    }
-
-    pub fn get_normalized_word_frequencies(&'a self, text: &'a str) -> Vec<(&'a str, f32)> {
-        let (frequencies, max_freq) = self.get_word_frequencies(text);
-
-        if frequencies.is_empty() {
-            return Vec::new();
-        }
-
-        let mut normalized_freqs: Vec<(&str, f32)> = frequencies.iter().map(|(key, val)| {
-            (*key, *val as f32 / max_freq as f32)
-        }).collect();
-
-        normalized_freqs.sort_by(|a, b| {
-            if a.1 != b.1 {
-                (b.1).partial_cmp(&a.1).unwrap()
-            }
-            else {
-                (a.0).partial_cmp(b.0).unwrap()
-            }
-        });
-
-        if self.repeat && normalized_freqs.len() < self.max_words as usize {
-            let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil()) as u32 - 1;
-            // println!("Times extend: {}, max_words: {}, freqs len: {}", times_extend, self.max_words, normalized_freqs.len());
-            let freqs_clone = normalized_freqs.clone();
-            let down_weight = normalized_freqs.last()
-                .expect("The normalized frequencies vec is empty")
-                .1;
-
-            for i in 1..=times_extend {
-                normalized_freqs.extend(
-                    freqs_clone.iter().map(|(word, freq)| {
-                        (*word, freq * down_weight.powf(i as f32))
-                    })
-                )
-            }
-        }
-
-        normalized_freqs
-    }
-
-    pub fn with_regex(mut self, value: Regex) -> Self {
-        self.regex = value;
-        self
-    }
-    pub fn with_filter(mut self, value: HashSet<&'a str>) -> Self {
-        // TODO: Make filtering case-insensitive
-        self.filter = value;
-        self
-    }
-    pub fn with_min_word_length(mut self, value: u32) -> Self {
-        self.min_word_length = value;
-        self
-    }
-    pub fn with_exclude_numbers(mut self, value: bool) -> Self {
-        self.exclude_numbers = value;
-        self
-    }
-    pub fn with_max_words(mut self, value: u32) -> Self {
-        self.max_words = value;
-        self
-    }
-    pub fn with_repeat(mut self, value: bool) -> Self {
-        self.repeat = value;
-        self
-    }
-}
 
 pub struct Word<'a> {
     text: &'a str,
@@ -159,8 +27,8 @@ pub enum WordCloudSize {
     FromMask(GrayImage),
 }
 
-pub struct WordCloud<'a> {
-    tokenizer: Tokenizer<'a>,
+pub struct WordCloud {
+    tokenizer: Tokenizer,
     background_color: Rgb<u8>,
     font: FontVec,
     min_font_size: f32,
@@ -172,7 +40,7 @@ pub struct WordCloud<'a> {
     rng_seed: Option<u64>,
 }
 
-impl<'a> Default for WordCloud<'a> {
+impl<'a> Default for WordCloud {
     fn default() -> Self {
         let font = FontVec::try_from_vec(include_bytes!("../fonts/DroidSansMono.ttf").to_vec()).unwrap();
 
@@ -191,9 +59,8 @@ impl<'a> Default for WordCloud<'a> {
     }
 }
 
-// TODO: Macros can simplify this probably?
-impl<'a> WordCloud<'a> {
-    pub fn with_tokenizer(mut self, value: Tokenizer<'a>) -> Self {
+impl WordCloud {
+    pub fn with_tokenizer(mut self, value: Tokenizer) -> Self {
         self.tokenizer = value;
         self
     }
@@ -237,8 +104,16 @@ impl<'a> WordCloud<'a> {
     }
 }
 
-impl<'a> WordCloud<'a> {
-    fn generate_from_word_positions(rng: &mut StdRng, width: u32, height: u32, word_positions: Vec<Word>, scale: f32, background_color: Rgb<u8>) -> RgbImage {
+impl WordCloud {
+    fn generate_from_word_positions(
+        rng: &mut StdRng,
+        width: u32,
+        height: u32,
+        word_positions: Vec<Word>,
+        scale: f32,
+        background_color: Rgb<u8>,
+        color_func: fn(&Word, &mut StdRng) -> Rgb<u8>
+    ) -> RgbImage {
         // TODO: Refactor this so that we can fail earlier
         if scale < 0.0 || scale > 100.0 {
             // TODO: Idk if this is good practice
@@ -248,21 +123,22 @@ impl<'a> WordCloud<'a> {
 
         let mut final_image_buffer = RgbImage::from_pixel((width as f32 * scale) as u32, (height as f32 * scale) as u32, background_color);
 
-        for Word { text, font, mut font_size, mut glyphs, rotated, mut position } in word_positions {
+        for mut word in word_positions.into_iter() {
             // println!("{:?} {:?} {:?} {:?} {:?}", font, scale, glyphs, rotated, position);
-            let col = random_color_rgb(rng);
+
+            let col = color_func(&word, rng);
 
             if scale != 1.0 {
-                font_size.x *= scale;
-                font_size.y *= scale;
+                word.font_size.x *= scale;
+                word.font_size.y *= scale;
 
-                position.x *= scale;
-                position.y *= scale;
+                word.position.x *= scale;
+                word.position.y *= scale;
 
-                glyphs = text::text_to_glyphs(text, &font, font_size);
+                word.glyphs = text::text_to_glyphs(word.text, &word.font, word.font_size);
             }
 
-            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, glyphs, &font, position, rotated, col);
+            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, word.glyphs, &word.font, word.position, word.rotated, col);
         }
 
         final_image_buffer
@@ -281,6 +157,16 @@ impl<'a> WordCloud<'a> {
     }
 
     pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbImage {
+        self.generate_from_text_with_color_func(text, size, scale, random_color_rgb)
+    }
+
+    pub fn generate_from_text_with_color_func(
+        &self,
+        text: &str,
+        size: WordCloudSize,
+        scale: f32,
+        color_func: fn(&Word, &mut StdRng) -> Rgb<u8>
+    ) -> RgbImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
         // println!("amount of words: {:?} {:?}", words.len(), words);
@@ -315,6 +201,8 @@ impl<'a> WordCloud<'a> {
 
         'outer: for (word, freq) in &words {
 
+            println!("Placing word {}", word);
+
             if !self.tokenizer.repeat && self.relative_font_scaling != 0.0 {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
             }
@@ -343,7 +231,12 @@ impl<'a> WordCloud<'a> {
                 }
 
                 match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect, &mut rng) {
-                    Some(pos) => break point(pos.x as f32 + self.word_margin as f32 / 2.0, pos.y as f32 + self.word_margin as f32 / 2.0),
+                    Some(pos) => {
+                        let half_margin = self.word_margin as f32 / 2.0;
+                        let x = pos.x as f32 + half_margin;
+                        let y = pos.y as f32 + half_margin;
+                        break point(x, y)
+                    },
                     None => {
                         if !tried_rotate {
                             should_rotate = true;
@@ -377,11 +270,13 @@ impl<'a> WordCloud<'a> {
 
         // println!("{:?}", words);
 
-        WordCloud::generate_from_word_positions(&mut rng, gray_buffer.width(), gray_buffer.height(), final_words, scale, self.background_color)
+        WordCloud::generate_from_word_positions(
+            &mut rng, gray_buffer.width(), gray_buffer.height(), final_words, scale, self.background_color, color_func
+        )
     }
 }
 
-fn random_color_rgb(rng: &mut StdRng) -> Rgb<u8> {
+fn random_color_rgb(_word: &Word, rng: &mut StdRng) -> Rgb<u8> {
     let hue = rng.gen_range(0.0, 255.0);
     // TODO: Python uses 0.8 for the saturation but it looks too washed out when used here
     //   Maybe something to do with the linear stuff?
@@ -402,54 +297,4 @@ fn random_color_rgb(rng: &mut StdRng) -> Rgb<u8> {
 // TODO: This doesn't seem particularly efficient
 fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
     buffer.as_raw().iter().map(|el| *el as u32).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simple_word_frequencies() {
-        let words = "A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood";
-
-        let tokenizer = Tokenizer::default();
-        let frequencies = tokenizer.get_word_frequencies(words);
-
-        let expected: HashMap<&str, usize> = vec![
-            ("if", 1), ("a", 2), ("chuck", 3),
-            ("would", 1), ("woodchuck", 3), ("A", 1),
-            ("as", 2), ("could", 2), ("much", 1),
-            ("wood", 2)
-        ].into_iter().collect();
-
-        assert_eq!(frequencies.0, expected);
-        assert_eq!(frequencies.1, 3);
-    }
-
-    #[test]
-    fn simple_normalized_word_frequencies() {
-        let words = "A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood";
-
-        let tokenizer = Tokenizer::default()
-            .with_repeat(true)
-            .with_max_words(30);
-        let frequencies = tokenizer.get_normalized_word_frequencies(words);
-
-        // println!("{:?}", frequencies);
-
-        let expected = vec![
-            ("woodchuck", 1.0), ("chuck", 1.0), ("wood", 0.6666667),
-            ("could", 0.6666667), ("as", 0.6666667), ("a", 0.6666667),
-            ("would", 0.33333334), ("much", 0.33333334), ("if", 0.33333334),
-            ("A", 0.33333334), ("woodchuck", 0.33333334), ("chuck", 0.33333334),
-            ("wood", 0.22222224), ("could", 0.22222224), ("as", 0.22222224),
-            ("a", 0.22222224), ("would", 0.11111112), ("much", 0.11111112),
-            ("if", 0.11111112), ("A", 0.11111112), ("woodchuck", 0.11111112),
-            ("chuck", 0.11111112), ("wood", 0.07407408), ("could", 0.07407408),
-            ("as", 0.07407408), ("a", 0.07407408), ("would", 0.03703704),
-            ("much", 0.03703704), ("if", 0.03703704), ("A", 0.03703704)
-        ];
-
-        assert_eq!(frequencies, expected);
-    }
 }
