@@ -1,6 +1,9 @@
 use regex::{Regex, Match};
 use std::collections::{HashSet, HashMap};
 
+// TODO: Use lazy_static or PHF to make this a HashSet?
+pub const DEFAULT_EXCLUDE_WORDS_TEXT: &str = include_str!("../exclude_words.txt");
+
 pub struct Tokenizer {
     pub regex: Regex,
     filter: HashSet<String>,
@@ -217,6 +220,26 @@ mod tests {
 
         let expected: HashMap<&str, usize> = vec![
             ("LUKE", 12)
+        ].into_iter().collect();
+
+        assert_eq!(frequencies.0, expected);
+    }
+
+    #[test]
+    fn filter_works() {
+        let words = "The quick brown fox jumps over the lazy dog. The dog was otherwise very fine.";
+        let filter = DEFAULT_EXCLUDE_WORDS_TEXT
+            .split("\n")
+            .collect::<HashSet<_>>();
+
+        let tokenizer = Tokenizer::default()
+            .with_filter(filter);
+        let frequencies = tokenizer.get_word_frequencies(words);
+
+        println!("original words: {:?} changed: {:?}", words, frequencies.0);
+
+        let expected: HashMap<&str, usize> = vec![
+            ("fox", 1), ("brown", 1), ("dog", 2), ("lazy", 1), ("jumps", 1), ("fine", 1), ("quick", 1)
         ].into_iter().collect();
 
         assert_eq!(frequencies.0, expected);

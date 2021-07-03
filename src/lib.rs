@@ -7,7 +7,7 @@ mod text;
 use text::GlyphData;
 mod sat;
 mod tokenizer;
-pub use tokenizer::Tokenizer;
+pub use tokenizer::{Tokenizer, DEFAULT_EXCLUDE_WORDS_TEXT};
 
 use rand::{Rng, thread_rng, SeedableRng};
 use rand::rngs::StdRng;

@@ -1,16 +1,12 @@
 use std::io::{self, Read, stdout};
-use wcloud::{Tokenizer, WordCloud, WordCloudSize, Word};
+use wcloud::{Tokenizer, WordCloud, WordCloudSize, DEFAULT_EXCLUDE_WORDS_TEXT};
 use clap::{Arg, App};
 use regex::Regex;
 use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
-use image::{ColorType, Rgb};
+use image::{ColorType};
 use ab_glyph::FontVec;
-use rand::rngs::StdRng;
-use rand::Rng;
-use palette::{Pixel, Srgb, Hsl, IntoColor};
-
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -124,7 +120,9 @@ fn main() {
             .expect(&format!("Unable to read exclude words file \'{}\'", exclude_words_path))
     }
     else {
-        String::new()
+        // Default exclude list taken from the WordCloud for Python project
+        // https://github.com/amueller/word_cloud/blob/master/wordcloud/stopwords
+        DEFAULT_EXCLUDE_WORDS_TEXT.to_string()
     };
 
     if !exclude_words.is_empty() {
