@@ -136,8 +136,8 @@ mod tests {
 
     #[test]
     fn large_zeros_sat() {
-        let mut table = vec![0; 10_000 * 10_000];
-        to_summed_area_table(&mut table, 10_000, 10_000);
+        let mut table = vec![0; 1000 * 1000];
+        to_summed_area_table(&mut table, 1000, 1000);
 
         assert!(true);
     }
