@@ -126,7 +126,7 @@ fn main() {
     };
 
     if !exclude_words.is_empty() {
-        let exclude_words = exclude_words.split("\n").collect::<HashSet<_>>();
+        let exclude_words = exclude_words.lines().collect::<HashSet<_>>();
         tokenizer = tokenizer.with_filter(exclude_words);
     }
 
