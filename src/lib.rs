@@ -174,10 +174,15 @@ impl WordCloud {
         let (mut summed_area_table, mut gray_buffer) = match size {
             WordCloudSize::FromDimensions { width, height } => {
                 let buf = GrayImage::from_pixel(width, height, Luma([0]));
-                (to_uint_vec(&buf), buf)
+                let mut summed_area_table = vec![0; buf.len()];
+
+                u8_to_u32_vec(&buf, &mut summed_area_table);
+                (summed_area_table, buf)
             },
             WordCloudSize::FromMask(image) => {
-                let mut table = to_uint_vec(&image);
+                let mut table = vec![0; image.len()];
+
+                u8_to_u32_vec(&image, &mut table);
                 sat::to_summed_area_table(
                     &mut table, image.width() as usize, image.height() as usize
                 );
@@ -257,7 +262,7 @@ impl WordCloud {
             });
 
             // TODO: Do a partial sat like the Python implementation
-            summed_area_table = to_uint_vec(&gray_buffer);
+            u8_to_u32_vec(&gray_buffer, &mut summed_area_table);
             sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
 
             last_freq = *freq;
@@ -289,6 +294,8 @@ fn random_color_rgb(_word: &Word, rng: &mut StdRng) -> Rgb<u8> {
 }
 
 // TODO: This doesn't seem particularly efficient
-fn to_uint_vec(buffer: &GrayImage) -> Vec<u32> {
-    buffer.as_raw().iter().map(|el| *el as u32).collect()
+fn u8_to_u32_vec(buffer: &GrayImage, dst: &mut Vec<u32>) {
+    for (i, el) in buffer.as_raw().iter().enumerate() {
+        dst[i] = *el as u32;
+    }
 }
