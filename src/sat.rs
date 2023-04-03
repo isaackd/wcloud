@@ -22,7 +22,6 @@ pub struct Point {
     pub y: u32,
 }
 
-// region: x, y, width, height
 pub fn region_is_empty(table: &[u32], table_width: u32, region: &Region) -> bool {
     let tl = table[(region.x + region.y * table_width) as usize];
     let tr = table[(region.x  + region.width + region.y * table_width) as usize];
@@ -33,56 +32,30 @@ pub fn region_is_empty(table: &[u32], table_width: u32, region: &Region) -> bool
     tl as i32 + br as i32 - tr as i32 - bl as i32 == 0
 }
 
+// https://en.wikipedia.org/wiki/Reservoir_sampling
 pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, rect: &Rect, rng: &mut StdRng) -> Option<Point> {
-    // TODO: Determine whether there's a better way to get a random point
-    //  It is not feasible to store all the points because there can be way too many
-    //  on larger images and smaller regions
-    //  ----
-    //  Python wordcloud does this by:
-    //    1. Count how many points there are to place this region
-    //    2. Choose a random point while running the algorithm for a second time
-    //  For now we will do the same
-
-    let mut available_points = 0;
 
     let max_x = table_width - rect.width;
     let max_y = table_height - rect.height;
-    //
-    // println!("We have to check {} and {} of x and ys ({}) | {:?}", max_x, max_y, max_x * max_y, rect);
+
+    let mut available_points = 0;
+    let mut random_point = None;
 
     for y in 0..max_y {
         for x in 0..max_x {
             let region = Region { x, y, width: rect.width, height: rect.height };
             if region_is_empty(&table, table_width, &region) {
-                available_points += 1;
-            }
-        }
-    }
 
-    // println!("Found {} spaces", available_points);
-
-    if available_points == 0 {
-        return None;
-    }
-
-    let chosen_point_index: u32 = rng.gen_range(0..=available_points);
-    // println!("Chose as point index: {}", chosen_point_index);
-    available_points = 0;
-
-    for y in 0..max_y {
-        for x in 0..max_x {
-            let region = Region { x, y, width: rect.width, height: rect.height };
-            if region_is_empty(&table, table_width, &region) {
-                available_points += 1;
-
-                if available_points == chosen_point_index {
-                    return Some(Point { x, y });
+                let random_num = rng.gen_range(0..=available_points);
+                if random_num == available_points {
+                    random_point = Some(Point { x, y });
                 }
+                available_points += 1;
             }
         }
     }
 
-    None
+    random_point
 }
 
 pub fn to_summed_area_table(table: &mut [u32], width: usize, height: usize) {
