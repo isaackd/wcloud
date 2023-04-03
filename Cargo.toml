@@ -2,7 +2,7 @@
 name = "wcloud"
 version = "0.1.0"
 authors = ["afrmtbl <afrmtbl@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
@@ -10,9 +10,17 @@ debug = true
 
 # TODO: Have only the binary depending on clap
 [dependencies]
-regex = "1.4.1"
-ab_glyph = "0.2.5"
-image = "0.23.10"
-rand = "0.7.3"
-palette = "0.5.0"
-clap = "2.33.3"
+regex = "1.7.1"
+ab_glyph = "0.2.20"
+image = "0.24.5"
+rand = "0.8.5"
+palette = "0.6.1"
+clap = "3.2.23"
+csscolorparser = "0.6.2"
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name = "create_wordcloud"
+harness = false

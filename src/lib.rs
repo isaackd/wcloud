@@ -200,9 +200,6 @@ impl WordCloud {
         // println!("The amount of freqs: {}", words.len());
 
         'outer: for (word, freq) in &words {
-
-            println!("Placing word {}", word);
-
             if !self.tokenizer.repeat && self.relative_font_scaling != 0.0 {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
             }
@@ -277,18 +274,15 @@ impl WordCloud {
 }
 
 fn random_color_rgb(_word: &Word, rng: &mut StdRng) -> Rgb<u8> {
-    let hue = rng.gen_range(0.0, 255.0);
+    let hue = rng.gen_range(0.0..255.0);
     // TODO: Python uses 0.8 for the saturation but it looks too washed out when used here
     //   Maybe something to do with the linear stuff?
     //   It's not really a problem just curious
     //   https://github.com/python-pillow/Pillow/blob/66209168847ad1b55190a629b49cc6ba829efe92/src/PIL/ImageColor.py#L83
-    let col = Hsl::new(hue, 1.0, 0.5)
-        .into_rgb();
+    let col = Hsl::new(hue, 1.0, 0.5);
+    let rgb: Srgb = col.into_color();
 
-    let col = col.into_linear();
-
-    let raw: [u8; 3] = Srgb::from_linear(col)
-        .into_format()
+    let raw: [u8; 3] = rgb.into_format()
         .into_raw();
 
     Rgb(raw)

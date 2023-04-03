@@ -65,7 +65,7 @@ pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, r
         return None;
     }
 
-    let chosen_point_index: u32 = rng.gen_range(0, available_points + 1);
+    let chosen_point_index: u32 = rng.gen_range(0..=available_points);
     // println!("Chose as point index: {}", chosen_point_index);
     available_points = 0;
 

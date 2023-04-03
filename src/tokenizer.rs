@@ -153,6 +153,7 @@ impl<'a> Tokenizer {
         self.filter = value.iter()
             .map(|el| el.to_lowercase())
             .collect();
+
         self
     }
     pub fn with_min_word_length(mut self, value: u32) -> Self {
@@ -229,7 +230,7 @@ mod tests {
     fn filter_works() {
         let words = "The quick brown fox jumps over the lazy dog. The dog was otherwise very fine.";
         let filter = DEFAULT_EXCLUDE_WORDS_TEXT
-            .split("\n")
+            .lines()
             .collect::<HashSet<_>>();
 
         let tokenizer = Tokenizer::default()

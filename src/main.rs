@@ -5,8 +5,9 @@ use regex::Regex;
 use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
-use image::{ColorType};
+use image::{ImageEncoder, ColorType, Rgb};
 use ab_glyph::FontVec;
+use csscolorparser::Color;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -36,6 +37,10 @@ fn main() {
             .long("scale")
             .value_name("NUM")
             .help("Sets the scale of the final word cloud image, relative to the width and height"))
+        .arg(Arg::with_name("background-color")
+            .long("background-color")
+            .value_name("TEXT")
+            .help("Sets the background color of the word cloud image"))
         .arg(Arg::with_name("margin")
             .long("margin")
             .value_name("NUM")
@@ -80,12 +85,12 @@ fn main() {
             .help("A newline-separated list of words to exclude from the word cloud"))
         .arg(Arg::with_name("output")
             .long("output")
-            .short("o")
+            .short('o')
             .value_name("FILE")
             .help("The output path of the final word cloud image"))
         .arg(Arg::with_name("font")
             .long("font")
-            .short("f")
+            .short('f')
             .value_name("FILE")
             .help("Sets the font used for the word cloud"))
         .get_matches();
@@ -132,7 +137,8 @@ fn main() {
 
     let wordcloud_size = match matches.value_of("mask") {
         Some(mask_path) => {
-            let mask_image = image::open(mask_path).unwrap().to_luma();
+            let mask_image = image::open(mask_path).unwrap()
+                .into_luma8();
 
             WordCloudSize::FromMask(mask_image)
         },
@@ -150,8 +156,22 @@ fn main() {
         }
     };
 
+    let background_color = match matches.value_of("background-color") {
+        Some(color) => {
+            let col = color.parse::<Color>()
+                .unwrap_or(Color::new(0.0, 0.0, 0.0, 1.0))
+                .to_rgba8();
+
+            Rgb([col[0], col[1], col[2]])
+        }
+        None => {
+            Rgb([0, 0, 0])
+        }
+    };
+
     let mut wordcloud = WordCloud::default()
-        .with_tokenizer(tokenizer);
+        .with_tokenizer(tokenizer)
+        .with_background_color(background_color);
 
     if let Some(margin) = matches.value_of("margin") {
         wordcloud = wordcloud.with_word_margin(
@@ -248,7 +268,8 @@ fn main() {
 
         let width = wordcloud_image.width();
         let height = wordcloud_image.height();
-        encoder.encode(wordcloud_image.as_raw(), width, height, ColorType::Rgb8)
-            .expect("Failed to save WordCloud image");
+
+        encoder.write_image(&wordcloud_image, width, height, ColorType::Rgb8)
+            .expect("Failed to save wordcloud image");
     }
 }

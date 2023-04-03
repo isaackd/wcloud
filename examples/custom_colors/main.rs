@@ -13,7 +13,7 @@ fn main() {
         .replace("HAN", "Han")
         .replace("LUKE'S", "Luke");
 
-    let mut filter = DEFAULT_EXCLUDE_WORDS_TEXT.split("\n")
+    let mut filter = DEFAULT_EXCLUDE_WORDS_TEXT.lines()
         .collect::<HashSet<_>>();
 
     filter.insert("int");
@@ -29,19 +29,16 @@ fn main() {
         .with_rng_seed(1);
 
     let mask_path = "examples/custom_colors/stormtrooper_mask.png";
-    let mask_image = image::open(mask_path).unwrap().to_luma();
+    let mask_image = image::open(mask_path).unwrap().to_luma8();
     let mask = WordCloudSize::FromMask(mask_image);
 
     let color_func = |_word: &Word, rng: &mut StdRng| {
-        let lightness = rng.gen_range(0.4, 1.0);
+        let lightness = rng.gen_range(0.4..1.0);
 
-        let col = Hsl::new(0.0, 0.0, lightness)
-            .into_rgb();
+        let col = Hsl::new(0.0, 0.0, lightness);
+        let rgb: Srgb = col.into_color();
 
-        let col = col.into_linear();
-
-        let raw: [u8; 3] = Srgb::from_linear(col)
-            .into_format()
+        let raw: [u8; 3] = rgb.into_format()
             .into_raw();
 
         Rgb(raw)
