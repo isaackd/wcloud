@@ -229,7 +229,12 @@ impl WordCloud {
                 };
 
                 if rect.width > gray_buffer.width() as u32 || rect.height > gray_buffer.height() as u32 {
-                    if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) { continue } else { break 'outer; };
+                    if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
+                        continue
+                    }
+                    else {
+                        break 'outer;
+                    };
                 }
 
                 match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect, &mut rng) {

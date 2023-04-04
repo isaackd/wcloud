@@ -60,13 +60,16 @@ pub fn find_space_for_rect(table: &[u32], table_width: u32, table_height: u32, r
 
 pub fn to_summed_area_table(table: &mut [u32], width: usize, height: usize) {
     // Sum each row
-    for y in 0..height {
-        // println!("{:?}", table);
-        for x in 1..width {
-            let el_index = y * width + x;
-            table[el_index] += table[el_index - 1];
-        }
-    }
+    table.chunks_exact_mut(width)
+        .for_each(|row| {
+            let mut acc = 0;
+            for el in row {
+                let prev_value = *el;
+                *el += acc;
+                acc += prev_value;
+
+            }
+        });
 
     // Sum each column
     for y in 1..height {
@@ -105,13 +108,5 @@ mod tests {
 
         let expected = [1, 3, 6, 10, 15, 21, 28, 36, 10, 22, 125, 329, 634, 1040, 1547, 2155];
         assert_eq!(table, expected);
-    }
-
-    #[test]
-    fn large_zeros_sat() {
-        let mut table = vec![0; 1000 * 1000];
-        to_summed_area_table(&mut table, 1000, 1000);
-
-        assert!(true);
     }
 }
