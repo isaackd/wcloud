@@ -184,7 +184,7 @@ impl WordCloud {
 
                 u8_to_u32_vec(&image, &mut table);
                 sat::to_summed_area_table(
-                    &mut table, image.width() as usize, image.height() as usize
+                    &mut table, image.width() as usize
                 );
                 (table, image)
             }
@@ -268,7 +268,7 @@ impl WordCloud {
 
             // TODO: Do a partial sat like the Python implementation
             u8_to_u32_vec(&gray_buffer, &mut summed_area_table);
-            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, gray_buffer.height() as usize);
+            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize);
 
             last_freq = *freq;
         }
