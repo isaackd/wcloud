@@ -17,9 +17,11 @@ rand = "0.8.5"
 palette = "0.6.1"
 clap = "3.2.23"
 csscolorparser = "0.6.2"
+rayon = "1.7.0"
+micro_rand = "0.0.1"
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = { version = "0.4.0", features = ["html_reports"] }
 
 [[bench]]
 name = "create_wordcloud"

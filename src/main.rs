@@ -9,13 +9,13 @@ use image::{ImageEncoder, ColorType, Rgb};
 use ab_glyph::FontVec;
 use csscolorparser::Color;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
 
     let matches = App::new("wcloud")
         .version(VERSION)
-        .author("afrmtbl <afrmtbl@gmail.com>")
+        .author("isaackd <afrmtbl@gmail.com>")
         .about("Generate word clouds!")
         .arg(Arg::with_name("text")
             .long("text")
@@ -122,7 +122,7 @@ fn main() {
 
     let exclude_words = if let Some(exclude_words_path) = matches.value_of("exclude-words") {
         fs::read_to_string(exclude_words_path)
-            .expect(&format!("Unable to read exclude words file \'{}\'", exclude_words_path))
+            .unwrap_or_else(|_| panic!("Unable to read exclude words file \'{}\'", exclude_words_path))
     }
     else {
         // Default exclude list taken from the WordCloud for Python project
@@ -232,7 +232,7 @@ fn main() {
 
     let text = if let Some(text_file_path) = matches.value_of("text") {
         fs::read_to_string(text_file_path)
-            .expect(&format!("Unable to read text file \'{}\'", text_file_path))
+            .unwrap_or_else(|_| panic!("Unable to read text file \'{}\'", text_file_path))
     }
     else {
         let mut buffer = String::new();

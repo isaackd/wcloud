@@ -5,7 +5,7 @@ use std::process::exit;
 
 mod text;
 use text::GlyphData;
-mod sat;
+pub mod sat;
 mod tokenizer;
 pub use tokenizer::{Tokenizer, DEFAULT_EXCLUDE_WORDS_TEXT};
 
@@ -40,7 +40,7 @@ pub struct WordCloud {
     rng_seed: Option<u64>,
 }
 
-impl<'a> Default for WordCloud {
+impl Default for WordCloud {
     fn default() -> Self {
         let font = FontVec::try_from_vec(include_bytes!("../fonts/DroidSansMono.ttf").to_vec()).unwrap();
 
@@ -94,7 +94,7 @@ impl WordCloud {
         self
     }
     pub fn with_relative_font_scaling(mut self, value: f32) -> Self {
-        assert!(value >= 0.0 && value <= 1.0, "Relative scaling must be between 0 and 1");
+        assert!((0.0..=1.0).contains(&value), "Relative scaling must be between 0 and 1");
         self.relative_font_scaling = value;
         self
     }
@@ -115,7 +115,7 @@ impl WordCloud {
         color_func: fn(&Word, &mut StdRng) -> Rgb<u8>
     ) -> RgbImage {
         // TODO: Refactor this so that we can fail earlier
-        if scale < 0.0 || scale > 100.0 {
+        if !(0.0..=100.0).contains(&scale) {
             // TODO: Idk if this is good practice
             // println!("The scale must be between 0 and 100 (both exclusive)");
             exit(1);
@@ -124,8 +124,6 @@ impl WordCloud {
         let mut final_image_buffer = RgbImage::from_pixel((width as f32 * scale) as u32, (height as f32 * scale) as u32, background_color);
 
         for mut word in word_positions.into_iter() {
-            // println!("{:?} {:?} {:?} {:?} {:?}", font, scale, glyphs, rotated, position);
-
             let col = color_func(&word, rng);
 
             if scale != 1.0 {
@@ -135,10 +133,10 @@ impl WordCloud {
                 word.position.x *= scale;
                 word.position.y *= scale;
 
-                word.glyphs = text::text_to_glyphs(word.text, &word.font, word.font_size);
+                word.glyphs = text::text_to_glyphs(word.text, word.font, word.font_size);
             }
 
-            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, word.glyphs, &word.font, word.position, word.rotated, col);
+            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, word.glyphs, word.font, word.position, word.rotated, col);
         }
 
         final_image_buffer
@@ -146,7 +144,7 @@ impl WordCloud {
 
     fn check_font_size(font_size: &mut f32, font_step: f32, min_font_size: f32) -> bool {
         let next_font_size = *font_size - font_step;
-        // println!("Stuck: {} {} {} {}", font_size, min_font_size, font_step, next_font_size);
+
         if next_font_size >= min_font_size && next_font_size > 0.0 {
             *font_size = next_font_size;
             true
@@ -169,8 +167,6 @@ impl WordCloud {
     ) -> RgbImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
-        // println!("amount of words: {:?} {:?}", words.len(), words);
-
         let (mut summed_area_table, mut gray_buffer) = match size {
             WordCloudSize::FromDimensions { width, height } => {
                 let buf = GrayImage::from_pixel(width, height, Luma([0]));
@@ -184,7 +180,7 @@ impl WordCloud {
 
                 u8_to_u32_vec(&image, &mut table);
                 sat::to_summed_area_table(
-                    &mut table, image.width() as usize
+                    &mut table, image.width() as usize, 0
                 );
                 (table, image)
             }
@@ -202,8 +198,6 @@ impl WordCloud {
             None => StdRng::from_rng(thread_rng()).unwrap()
         };
 
-        // println!("The amount of freqs: {}", words.len());
-
         'outer: for (word, freq) in &words {
             if !self.tokenizer.repeat && self.relative_font_scaling != 0.0 {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
@@ -214,10 +208,8 @@ impl WordCloud {
             }
 
             let mut should_rotate = rng.gen_bool(self.word_rotate_chance);
-
-            let mut glyphs;
-
             let mut tried_rotate = false;
+            let mut glyphs;
 
             let pos = loop {
                 glyphs = text::text_to_glyphs(word, &self.font, PxScale::from(font_size));
@@ -228,7 +220,7 @@ impl WordCloud {
                     sat::Rect { width: glyphs.height + self.word_margin, height: glyphs.width + self.word_margin }
                 };
 
-                if rect.width > gray_buffer.width() as u32 || rect.height > gray_buffer.height() as u32 {
+                if rect.width > gray_buffer.width() || rect.height > gray_buffer.height() {
                     if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
                         continue
                     }
@@ -242,6 +234,7 @@ impl WordCloud {
                         let half_margin = self.word_margin as f32 / 2.0;
                         let x = pos.x as f32 + half_margin;
                         let y = pos.y as f32 + half_margin;
+
                         break point(x, y)
                     },
                     None => {
@@ -249,7 +242,8 @@ impl WordCloud {
                             should_rotate = true;
                             tried_rotate = true;
                         }
-                        else if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
+
+                        if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
                             break 'outer;
                         }
                     }
@@ -268,14 +262,11 @@ impl WordCloud {
 
             // TODO: Do a partial sat like the Python implementation
             u8_to_u32_vec(&gray_buffer, &mut summed_area_table);
-            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize);
+            let start_row = (pos.y - 1.0).min(0.0) as usize;
+            sat::to_summed_area_table(&mut summed_area_table, gray_buffer.width() as usize, start_row);
 
             last_freq = *freq;
         }
-
-        // println!("{}", final_words.len());
-
-        // println!("{:?}", words);
 
         WordCloud::generate_from_word_positions(
             &mut rng, gray_buffer.width(), gray_buffer.height(), final_words, scale, self.background_color, color_func
@@ -299,7 +290,7 @@ fn random_color_rgb(_word: &Word, rng: &mut StdRng) -> Rgb<u8> {
 }
 
 // TODO: This doesn't seem particularly efficient
-fn u8_to_u32_vec(buffer: &GrayImage, dst: &mut Vec<u32>) {
+fn u8_to_u32_vec(buffer: &GrayImage, dst: &mut [u32]) {
     for (i, el) in buffer.as_raw().iter().enumerate() {
         dst[i] = *el as u32;
     }

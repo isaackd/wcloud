@@ -13,7 +13,7 @@ pub struct Tokenizer {
     pub repeat: bool,
 }
 
-impl<'a> Default for Tokenizer {
+impl Default for Tokenizer {
     fn default() -> Self {
         let regex = Regex::new("\\w[\\w']*")
             .expect("Unable to compile tokenization regex");
@@ -98,9 +98,8 @@ impl<'a> Tokenizer {
         }
 
         let common_cased_map = Self::keep_common_case(&frequencies);
-        let max_freq = common_cased_map.values().max()
-            .expect("Can't get max frequency")
-            .clone();
+        let max_freq = *common_cased_map.values().max()
+            .expect("Can't get max frequency");
 
         (common_cased_map, max_freq)
     }
