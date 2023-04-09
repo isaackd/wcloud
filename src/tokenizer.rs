@@ -34,9 +34,6 @@ impl<'a> Tokenizer {
         let mut result: Box<dyn Iterator<Item=Match<'a>> + 'a>
             = Box::new(self.regex.find_iter(text));
 
-        if self.max_words != 0 {
-            result = Box::new(result.take(self.max_words as usize));
-        }
         if !self.filter.is_empty() {
             result = Box::new(result.filter(move |word| {
                 let word_lower = word.as_str().to_lowercase();
@@ -66,7 +63,7 @@ impl<'a> Tokenizer {
                 .unwrap()
                 .insert(key, *val);
         }
-
+        
         common_cases.values().map(|val| {
             let mut most_common_case: Vec<(&str, usize)> = val.iter().map(|(case_key, case_val)| {
                 (*case_key, *case_val)
@@ -124,9 +121,13 @@ impl<'a> Tokenizer {
             }
         });
 
+        if self.max_words > 0 {
+            normalized_freqs.truncate(self.max_words as usize)
+        }
+
         if self.repeat && normalized_freqs.len() < self.max_words as usize {
             let times_extend = ((self.max_words as f32 / normalized_freqs.len() as f32).ceil()) as u32 - 1;
-            // println!("Times extend: {}, max_words: {}, freqs len: {}", times_extend, self.max_words, normalized_freqs.len());
+
             let freqs_clone = normalized_freqs.clone();
             let down_weight = normalized_freqs.last()
                 .expect("The normalized frequencies vec is empty")
