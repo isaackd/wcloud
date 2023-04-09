@@ -10,9 +10,9 @@ debug = true
 
 # TODO: Have only the binary depending on clap
 [dependencies]
-regex = "1.7.1"
+regex = "1.7.3"
 ab_glyph = "0.2.20"
-image = "0.24.5"
+image = "0.24.6"
 rand = "0.8.5"
 palette = "0.6.1"
 clap = "3.2.23"
