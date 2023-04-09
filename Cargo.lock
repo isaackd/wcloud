@@ -510,12 +510,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "micro_rand"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69368ce45883d875ef104abdadeb0ba18d5ba2666b236ab6b72ce62f1bb92f5a"
-
-[[package]]
 name = "miniz_oxide"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1071,7 +1065,6 @@ dependencies = [
  "criterion",
  "csscolorparser",
  "image",
- "micro_rand",
  "palette",
  "rand",
  "rayon",
