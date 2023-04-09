@@ -2,13 +2,14 @@ use std::{fs, iter};
 use std::collections::HashSet;
 use std::time::Duration;
 use wcloud::{Tokenizer, WordCloud, WordCloudSize, Word, DEFAULT_EXCLUDE_WORDS_TEXT, sat};
-use rand::{Rng, SeedableRng, thread_rng};
+use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use image::Rgb;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput, BenchmarkId};
 use rand::seq::SliceRandom;
+use wcloud::sat::to_summed_area_table;
 
 
 pub fn wcloud(c: &mut Criterion) {
@@ -74,7 +75,7 @@ pub fn sat(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size.0 * size.1), &(size.0 * size.1), |b, &table_len| {
             let mut table: Vec<u32> = (0..table_len).map(|_| rng.gen_range(0..=255))
                 .collect();
-            b.iter(|| table.shuffle(&mut rng));
+            b.iter(|| sat::to_summed_area_table(&mut table, size.0 as usize, 0));
         });
     }
 
