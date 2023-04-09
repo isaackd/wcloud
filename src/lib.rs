@@ -188,14 +188,25 @@ impl WordCloud {
 
         let mut final_words = Vec::with_capacity(words.len());
 
-        let mut font_size = self.max_font_size
-            .unwrap_or(gray_buffer.height() as f32 * 0.95);
-
         let mut last_freq = 1.0;
 
         let mut rng = match self.rng_seed {
             Some(seed) => StdRng::seed_from_u64(seed),
             None => StdRng::from_rng(thread_rng()).unwrap()
+        };
+
+        let first_word = words.first()
+            .expect("There are no words!");
+
+        let mut font_size = {
+            let glyphs = text::text_to_glyphs(first_word.0, &self.font, PxScale::from(gray_buffer.height() as f32 * 0.95));
+            let rect = sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin };
+
+            let height_ratio = rect.height as f32 / rect.width as f32;
+
+
+            let start_height = gray_buffer.width() as f32 * height_ratio;
+            self.max_font_size.map_or_else(|| start_height, |max_font_size| start_height.min(max_font_size))
         };
 
         'outer: for (word, freq) in &words {
