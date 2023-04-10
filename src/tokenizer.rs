@@ -51,16 +51,12 @@ impl<'a> Tokenizer {
     }
 
     fn keep_common_case(map: &HashMap<&'a str, usize>) -> HashMap<&'a str, usize> {
-        type WordCount<'a> = HashMap<&'a str, usize>;
-        let mut common_cases = HashMap::<String, WordCount>::new();
-        for &key in map.keys() {
-            common_cases.entry(key.to_lowercase()).or_default();
-        }
+        type CaseCounts<'a> = HashMap<&'a str, usize>;
 
+        let mut common_cases = HashMap::<String, CaseCounts>::new();
         for (key, val) in map {
-            let key_lower = key.to_lowercase();
-            common_cases.get_mut(&key_lower)
-                .unwrap()
+            common_cases.entry(key.to_lowercase())
+                .or_default()
                 .insert(key, *val);
         }
         
