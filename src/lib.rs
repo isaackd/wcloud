@@ -218,6 +218,8 @@ impl WordCloud {
                 break;
             }
 
+            let initial_font_size = font_size;
+
             let mut should_rotate = rng.gen_bool(self.word_rotate_chance);
             let mut tried_rotate = false;
             let mut glyphs;
@@ -249,13 +251,15 @@ impl WordCloud {
                         break point(x, y)
                     },
                     None => {
-                        if !tried_rotate {
-                            should_rotate = true;
-                            tried_rotate = true;
-                        }
-
                         if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
-                            break 'outer;
+                            if !tried_rotate {
+                                should_rotate = true;
+                                tried_rotate = true;
+                                font_size = initial_font_size;
+                            }
+                            else {
+                                break 'outer;
+                            }
                         }
                     }
                 };
