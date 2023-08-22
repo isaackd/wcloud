@@ -154,6 +154,11 @@ impl WordCloud {
         }
     }
 
+    fn text_dimensions_at_font_size(&self, text: &str, font_size: PxScale) -> Rect {
+        let glyphs = text::text_to_glyphs(text, &self.font, font_size);
+        sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
+    }
+
     pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbImage {
         self.generate_from_text_with_color_func(text, size, scale, random_color_rgb)
     }
@@ -199,20 +204,34 @@ impl WordCloud {
             .expect("There are no words!");
 
         let mut font_size = {
-            let glyphs = text::text_to_glyphs(first_word.0, &self.font, PxScale::from(gray_buffer.height() as f32 * 0.95));
-            let rect = sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin };
+            let rect_at_image_height = self.text_dimensions_at_font_size(
+                first_word.0,
+                PxScale::from(gray_buffer.height() as f32 * 0.95)
+            );
 
-            let height_ratio = rect.height as f32 / rect.width as f32;
+            let height_ratio = rect_at_image_height.height as f32 / rect_at_image_height.width as f32;
 
+            let mut start_height = gray_buffer.width() as f32 * height_ratio;
 
-            let start_height = gray_buffer.width() as f32 * height_ratio;
-            self.max_font_size.map_or_else(|| start_height, |max_font_size| start_height.min(max_font_size))
+            if matches!(WordCloudSize::FromMask, _size) {
+                let black_pixels = gray_buffer.as_raw().iter().filter(|p| **p == 0).count();
+                let available_space: f32 = black_pixels as f32 / gray_buffer.len() as f32;
+                start_height *= available_space;
+            }
+
+            if let Some(max) = self.max_font_size {
+                start_height.min(max)
+            }
+            else {
+                start_height
+            }
         };
 
         'outer: for (word, freq) in &words {
             if !self.tokenizer.repeat && self.relative_font_scaling != 0.0 {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
             }
+
 
             if font_size < self.min_font_size {
                 break;
