@@ -18,6 +18,11 @@ palette = "0.6.1"
 clap = "3.2.23"
 csscolorparser = "0.6.2"
 rayon = "1.7.0"
+woff2 = { path = "../woff2-rs" }
+
+serde = { version = "1.0.164", optional = true }
+serde_derive = { version = "1.0.164", optional = true }
+serde_json = { version = "1.0.99", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.4.0", features = ["html_reports"] }
@@ -25,3 +30,6 @@ criterion = { version = "0.4.0", features = ["html_reports"] }
 [[bench]]
 name = "create_wordcloud"
 harness = false
+
+[features]
+visualize = ["dep:serde", "dep:serde_derive", "dep:serde_json"]

@@ -1,7 +1,11 @@
+use std::fs;
+use std::io::{BufWriter, stdout, Write};
+use std::path::{PathBuf};
 use image::{GrayImage, Rgb, RgbImage, Luma};
-use ab_glyph::{PxScale, Point, point, FontVec};
+use ab_glyph::{PxScale, Point, point, FontVec, Font, Glyph};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use std::process::exit;
+use woff2::decode::{convert_woff2_to_ttf, is_woff2};
 
 mod text;
 use text::GlyphData;
@@ -11,14 +15,20 @@ pub use tokenizer::{Tokenizer, DEFAULT_EXCLUDE_WORDS_TEXT};
 
 use rand::{Rng, thread_rng, SeedableRng};
 use rand::rngs::StdRng;
+use crate::sat::{Rect, Region};
+
+#[cfg(feature = "visualize")]
+mod visualize;
+#[cfg(feature = "visualize")]
+use crate::visualize::{Init, Message};
 
 pub struct Word<'a> {
-    text: &'a str,
-    font: &'a FontVec,
-    font_size: PxScale,
-    glyphs: GlyphData,
-    rotated: bool,
-    position: Point,
+    pub text: &'a str,
+    pub font: &'a FontVec,
+    pub font_size: PxScale,
+    pub glyphs: GlyphData,
+    pub rotated: bool,
+    pub position: Point,
 }
 
 // TODO: Figure out a better way to structure this
@@ -30,7 +40,7 @@ pub enum WordCloudSize {
 pub struct WordCloud {
     tokenizer: Tokenizer,
     background_color: Rgb<u8>,
-    font: FontVec,
+    pub font: FontVec,
     min_font_size: f32,
     max_font_size: Option<f32>,
     font_step: f32,
@@ -42,7 +52,7 @@ pub struct WordCloud {
 
 impl Default for WordCloud {
     fn default() -> Self {
-        let font = FontVec::try_from_vec(include_bytes!("../fonts/DroidSansMono.ttf").to_vec()).unwrap();
+        let font = FontVec::try_from_vec(include_bytes!("../fonts/Ubuntu-B.ttf").to_vec()).unwrap();
 
         WordCloud {
             tokenizer: Tokenizer::default(),
@@ -70,6 +80,21 @@ impl WordCloud {
     }
     pub fn with_font(mut self, value: FontVec) -> Self {
         self.font = value;
+        self
+    }
+    pub fn with_font_from_path(mut self, path: PathBuf) -> Self {
+        let font_file = if path.extension() == Some("woff2".as_ref()) {
+            let buffer = fs::read(path).unwrap();
+            assert!(is_woff2(&buffer));
+            convert_woff2_to_ttf(&mut std::io::Cursor::new(buffer)).expect("Invalid WOFF2 file")
+        }
+        else {
+            fs::read(path).expect("Unable to read font file")
+        };
+
+        self.font = FontVec::try_from_vec(font_file)
+            .expect("Font file may be invalid");
+
         self
     }
     pub fn with_min_font_size(mut self, value: f32) -> Self {
@@ -154,6 +179,16 @@ impl WordCloud {
         }
     }
 
+    fn glyphs_height(&self, glyphs: &[Glyph]) -> u32 {
+        glyphs.iter().map(|g| {
+            let outlined = self.font.outline_glyph(g.clone())
+                .expect("Unable to outline glyph");
+
+            let bounds = outlined.px_bounds();
+            bounds.height() as u32
+        }).max().expect("No glyphs!")
+    }
+
     fn text_dimensions_at_font_size(&self, text: &str, font_size: PxScale) -> Rect {
         let glyphs = text::text_to_glyphs(text, &self.font, font_size);
         sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
@@ -191,6 +226,25 @@ impl WordCloud {
             }
         };
 
+        #[cfg(feature = "visualize")]
+        {
+            let mask = if matches!(WordCloudSize::FromMask, size) {
+                Some(gray_buffer.to_vec())
+            }
+            else {
+                None
+            };
+
+            let serialized = serde_json::to_string(&Message::InitMessage(Init {
+                width: gray_buffer.width(),
+                height: gray_buffer.height(),
+                mask,
+                font: self.font.as_slice().to_vec(),
+                background_color: self.background_color.0,
+            })).unwrap();
+            println!("{}", serialized);
+        };
+
         let mut final_words = Vec::with_capacity(words.len());
 
         let mut last_freq = 1.0;
@@ -202,6 +256,8 @@ impl WordCloud {
 
         let first_word = words.first()
             .expect("There are no words!");
+
+        let skip_list = create_mask_skip_list(&gray_buffer);
 
         let mut font_size = {
             let rect_at_image_height = self.text_dimensions_at_font_size(
@@ -232,7 +288,6 @@ impl WordCloud {
                 font_size *= self.relative_font_scaling * (freq / last_freq) + (1.0 - self.relative_font_scaling);
             }
 
-
             if font_size < self.min_font_size {
                 break;
             }
@@ -245,11 +300,25 @@ impl WordCloud {
 
             let pos = loop {
                 glyphs = text::text_to_glyphs(word, &self.font, PxScale::from(font_size));
+                let glyphs_height = self.glyphs_height(&glyphs.glyphs);
+
                 let rect = if !should_rotate {
                     sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
                 }
                 else {
                     sat::Rect { width: glyphs.height + self.word_margin, height: glyphs.width + self.word_margin }
+                };
+
+                #[cfg(feature = "visualize")]
+                {
+                    let serialized = serde_json::to_string(&Message::ChangeWordMessage(visualize::Word {
+                        text: word.to_string(),
+                        font_size: font_size as u32,
+                        rect_width: rect.width,
+                        rect_height: rect.height,
+                        rotation: if should_rotate { 270 } else { 0 },
+                    })).unwrap();
+                    println!("{}", serialized);
                 };
 
                 if rect.width > gray_buffer.width() || rect.height > gray_buffer.height() {
@@ -261,29 +330,67 @@ impl WordCloud {
                     };
                 }
 
-                match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect, &mut rng) {
-                    Some(pos) => {
-                        let half_margin = self.word_margin as f32 / 2.0;
-                        let x = pos.x as f32 + half_margin;
-                        let y = pos.y as f32 + half_margin;
+                if matches!(WordCloudSize::FromMask, _size) {
+                    match sat::find_space_for_rect_masked(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &skip_list, &rect, &mut rng) {
+                        Some(pos) => {
+                            let half_margin = self.word_margin as f32 / 2.0;
+                            let x = pos.x as f32 + half_margin;
+                            let y = pos.y as f32 + half_margin;
 
-                        break point(x, y)
-                    },
-                    None => {
-                        if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
-                            if !tried_rotate {
-                                should_rotate = true;
-                                tried_rotate = true;
-                                font_size = initial_font_size;
-                            }
-                            else {
-                                break 'outer;
+                            break point(x, y)
+                        },
+                        None => {
+                            if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
+                                if !tried_rotate {
+                                    should_rotate = true;
+                                    tried_rotate = true;
+                                    font_size = initial_font_size;
+                                }
+                                else {
+                                    break 'outer;
+                                }
                             }
                         }
-                    }
-                };
+                    };
+                }
+                else {
+                    match sat::find_space_for_rect(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &rect, &mut rng) {
+                        Some(pos) => {
+                            let half_margin = self.word_margin as f32 / 2.0;
+                            let x = pos.x as f32 + half_margin;
+                            let y = pos.y as f32 + half_margin;
+
+                            break point(x, y)
+                        },
+                        None => {
+                            if !Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
+                                if !tried_rotate {
+                                    should_rotate = true;
+                                    tried_rotate = true;
+                                    font_size = initial_font_size;
+                                }
+                                else {
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    };
+                }
+
             };
             text::draw_glyphs_to_gray_buffer(&mut gray_buffer, glyphs.clone(), &self.font, pos, should_rotate);
+
+            #[cfg(feature = "visualize")]
+            {
+                let serialized = serde_json::to_string(&Message::PlacedWordMessage(visualize::PlaceWord {
+                    text: word.to_string(),
+                    font_size: font_size as u32,
+                    x: pos.x as u32,
+                    y: pos.y as u32,
+                    rotation: if should_rotate { 270 } else { 0 },
+                })).unwrap();
+                println!("{}", serialized);
+            };
 
             final_words.push(Word {
                 text: word,
@@ -328,4 +435,50 @@ fn u8_to_u32_vec(buffer: &GrayImage, dst: &mut [u32]) {
     for (i, el) in buffer.as_raw().iter().enumerate() {
         dst[i] = *el as u32;
     }
+}
+
+fn find_image_bounds(img: &GrayImage) -> Region {
+    let mut min_x = img.width();
+    let mut min_y = 0;
+    let mut max_x = 0;
+    let mut max_y = 0;
+
+    let mut found_min_y = false;
+    for (y, mut row) in img.enumerate_rows() {
+        if let Some(pos) = row.position(|p| p.2 == &Luma::from([0])) {
+            if !found_min_y {
+                min_y = y;
+                found_min_y = true;
+            }
+
+            max_y = y;
+
+            if pos < min_x as usize {
+                min_x = pos as u32;
+            }
+
+            if let Some(last_pos) = row.filter(|p| p.2 == &Luma::from([0])).last() {
+                if last_pos.0 > max_x {
+                    max_x = last_pos.0;
+                }
+            }
+            else if pos > max_x as usize {
+                max_x = pos as u32;
+            }
+        }
+    }
+
+    let width = max_x - min_x;
+    let height = max_y - min_y;
+
+    Region { x: min_x, y: min_y, width, height }
+}
+
+fn create_mask_skip_list(img: &GrayImage) -> Vec<(usize, usize)> {
+    img.rows().map(|mut row| {
+        let furthest_left = row.rposition(|p| p == &Luma::from([0])).unwrap_or(img.width() as usize);
+        let furthest_right = row.position(|p| p == &Luma::from([0])).unwrap_or(0);
+
+        (furthest_right, furthest_left)
+    }).collect()
 }
