@@ -5,7 +5,7 @@ use regex::Regex;
 use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
-use image::{ImageEncoder, ColorType, Rgb};
+use image::{ImageEncoder, ColorType, Rgba};
 use ab_glyph::FontVec;
 use csscolorparser::Color;
 
@@ -162,10 +162,10 @@ fn main() {
                 .unwrap_or(Color::new(0.0, 0.0, 0.0, 1.0))
                 .to_rgba8();
 
-            Rgb([col[0], col[1], col[2]])
+            Rgba(col)
         }
         None => {
-            Rgb([0, 0, 0])
+            Rgba([0, 0, 0, 0])
         }
     };
 

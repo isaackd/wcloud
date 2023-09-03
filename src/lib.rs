@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{PathBuf};
-use image::{GrayImage, Rgb, Luma, RgbaImage, Rgba};
+use image::{GrayImage, Luma, RgbaImage, Rgba};
 use ab_glyph::{PxScale, Point, point, FontVec, Font, Glyph};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use std::process::exit;
@@ -189,7 +189,7 @@ impl WordCloud {
 
     fn text_dimensions_at_font_size(&self, text: &str, font_size: PxScale) -> Rect {
         let glyphs = text::text_to_glyphs(text, &self.font, font_size);
-        sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
+        Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
     }
 
     pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbaImage {
@@ -226,7 +226,7 @@ impl WordCloud {
 
         #[cfg(feature = "visualize")]
         {
-            let mask = if matches!(WordCloudSize::FromMask, size) {
+            let mask = if matches!(WordCloudSize::FromMask, _size) {
                 Some(gray_buffer.to_vec())
             }
             else {
@@ -292,7 +292,7 @@ impl WordCloud {
 
             let initial_font_size = font_size;
 
-            let mut should_rotate = rng.generate::<u8>() <= (255 as f64 * self.word_rotate_chance) as u8;
+            let mut should_rotate = rng.generate::<u8>() <= (255.0 * self.word_rotate_chance) as u8;
             let mut tried_rotate = false;
             let mut glyphs;
 
@@ -303,10 +303,10 @@ impl WordCloud {
                 let glyphs_height = self.glyphs_height(&glyphs.glyphs);
 
                 let rect = if !should_rotate {
-                    sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
+                    Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
                 }
                 else {
-                    sat::Rect { width: glyphs.height + self.word_margin, height: glyphs.width + self.word_margin }
+                    Rect { width: glyphs.height + self.word_margin, height: glyphs.width + self.word_margin }
                 };
 
                 #[cfg(feature = "visualize")]

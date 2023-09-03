@@ -14,7 +14,7 @@ pub struct Init {
     pub height: u32,
     pub mask: Option<Vec<u8>>,
     pub font: Vec<u8>,
-    pub background_color: [u8; 3],
+    pub background_color: [u8; 4],
 }
 
 #[derive(Serialize)]
