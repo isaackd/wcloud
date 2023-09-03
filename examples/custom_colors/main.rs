@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use ab_glyph::{FontVec};
 use wcloud::{Tokenizer, WordCloud, WordCloudSize, Word, DEFAULT_EXCLUDE_WORDS_TEXT};
 use nanorand::{Rng, WyRand};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
@@ -25,7 +24,6 @@ fn main() {
     let wordcloud = WordCloud::default()
         .with_tokenizer(tokenizer)
         .with_word_margin(10)
-        .with_font_from_path("fonts/Ubuntu-B.ttf".into())
         .with_rng_seed(1);
 
     let mask_buf = include_bytes!("stormtrooper_mask.png");
@@ -52,6 +50,6 @@ fn main() {
 
     println!("Generated in {}ms", now.elapsed().as_millis());
 
-    wordcloud_image.save("a_new_hope.png")
-        .expect("Unable to save image a_new_hope.png");
+    wordcloud_image.save("examples/custom_colors/a_new_hope.png")
+        .expect("Unable to save image");
 }
