@@ -17,7 +17,7 @@ palette = "0.6.1"
 clap = "3.2.23"
 csscolorparser = "0.6.2"
 rayon = "1.7.0"
-woff2 = { path = "../woff2-rs" }
+woff2 = { git = "https://github.com/isaackd/woff2-rs.git" }
 nanorand = "0.7.0"
 
 serde = { version = "1.0.164", optional = true }
