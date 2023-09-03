@@ -1,6 +1,6 @@
 // Naive implementation of a summed-area table
 // https://en.wikipedia.org/wiki/Summed-area_table
-use rand::{rngs::StdRng, Rng};
+use nanorand::{Rng, WyRand};
 
 #[cfg(feature = "visualize")]
 use std::io::{BufWriter, stdout, Write};
@@ -37,19 +37,17 @@ pub fn region_is_empty(table: &[u32], table_width: usize, x: usize, y: usize, wi
     tl as i32 + br as i32 - tr as i32 - bl as i32 == 0
 }
 
-// https://en.wikipedia.org/wiki/Reservoir_sampling
 pub fn find_space_for_rect(
     table: &[u32],
     table_width: u32,
     table_height: u32,
     rect: &Rect,
-    rng: &mut StdRng,
+    rng: &mut WyRand,
 ) -> Option<Point> {
     let max_x = table_width - rect.width;
     let max_y = table_height - rect.height;
 
     let mut available_points = 0;
-    let mut stopped_at = 0;
     let mut random_point = None;
 
     #[cfg(feature = "visualize")]
@@ -62,54 +60,48 @@ pub fn find_space_for_rect(
             #[cfg(feature = "visualize")]
             {
                 let serialized = serde_json::to_string(&Message::CheckRectMessage(CheckRect {
-                    x: x as u32,
-                    y: y as u32,
+                    x,
+                    y,
                     empty,
                 })).unwrap();
                 writeln!(visualize_buf, "{}", serialized).unwrap();
             };
 
             if empty {
-                let random_num = rng.gen_range(0..=available_points);
+                // https://en.wikipedia.org/wiki/Reservoir_sampling
+                let random_num = rng.generate_range(0..=available_points);
                 if random_num == available_points {
-                    random_point = Some(Point { x: x as u32, y });
-                    stopped_at = available_points;
+                    random_point = Some(Point { x, y });
                 }
                 available_points += 1;
             }
         }
     }
 
-    // println!("stopped_at: {} / {}", stopped_at, available_points);
-
     random_point
 }
 
-// https://en.wikipedia.org/wiki/Reservoir_sampling
 pub fn find_space_for_rect_masked(
     table: &[u32],
     table_width: u32,
     table_height: u32,
     skip_list: &[(usize, usize)],
     rect: &Rect,
-    rng: &mut StdRng,
+    rng: &mut WyRand,
 ) -> Option<Point> {
     let max_x = table_width - rect.width;
     let max_y = table_height - rect.height;
 
     let mut available_points = 0;
-    let mut stopped_at = 0;
     let mut random_point = None;
 
     #[cfg(feature = "visualize")]
-        let mut visualize_buf = BufWriter::new(stdout());
+    let mut visualize_buf = BufWriter::new(stdout());
 
     for y in 0..max_y {
         let (furthest_right, furthest_left) = skip_list[y as usize];
-        // println!("minx: {}, maxx: {}", furthest_right, furthest_left);
-        // for x in 0..max_x {
         for x in furthest_right..furthest_left.min(max_x as usize) {
-            let empty = region_is_empty(table, table_width as usize, x as usize, y as usize, rect.width as usize, rect.height as usize);
+            let empty = region_is_empty(table, table_width as usize, x, y as usize, rect.width as usize, rect.height as usize);
 
             #[cfg(feature = "visualize")]
             {
@@ -122,10 +114,10 @@ pub fn find_space_for_rect_masked(
             };
 
             if empty {
-                let random_num = rng.gen_range(0..=available_points);
+                // https://en.wikipedia.org/wiki/Reservoir_sampling
+                let random_num: u32 = rng.generate_range(0..=available_points);
                 if random_num == available_points {
                     random_point = Some(Point { x: x as u32, y });
-                    stopped_at = available_points;
                 }
                 available_points += 1;
             }
@@ -133,6 +125,7 @@ pub fn find_space_for_rect_masked(
     }
 
     // println!("stopped_at: {} / {}", stopped_at, available_points);
+    // println!("{}", available_points);
 
     random_point
 }

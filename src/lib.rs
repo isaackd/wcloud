@@ -1,7 +1,6 @@
 use std::fs;
-use std::io::{BufWriter, stdout, Write};
 use std::path::{PathBuf};
-use image::{GrayImage, Rgb, RgbImage, Luma};
+use image::{GrayImage, Rgb, Luma, RgbaImage, Rgba};
 use ab_glyph::{PxScale, Point, point, FontVec, Font, Glyph};
 use palette::{Pixel, Srgb, Hsl, IntoColor};
 use std::process::exit;
@@ -13,8 +12,7 @@ pub mod sat;
 mod tokenizer;
 pub use tokenizer::{Tokenizer, DEFAULT_EXCLUDE_WORDS_TEXT};
 
-use rand::{Rng, thread_rng, SeedableRng};
-use rand::rngs::StdRng;
+use nanorand::{Rng, WyRand};
 use crate::sat::{Rect, Region};
 
 #[cfg(feature = "visualize")]
@@ -39,7 +37,7 @@ pub enum WordCloudSize {
 
 pub struct WordCloud {
     tokenizer: Tokenizer,
-    background_color: Rgb<u8>,
+    background_color: Rgba<u8>,
     pub font: FontVec,
     min_font_size: f32,
     max_font_size: Option<f32>,
@@ -56,7 +54,7 @@ impl Default for WordCloud {
 
         WordCloud {
             tokenizer: Tokenizer::default(),
-            background_color: Rgb([0, 0, 0]),
+            background_color: Rgba([0, 0, 0, 255]),
             font,
             min_font_size: 4.0,
             max_font_size: None,
@@ -74,7 +72,7 @@ impl WordCloud {
         self.tokenizer = value;
         self
     }
-    pub fn with_background_color(mut self, value: Rgb<u8>) -> Self {
+    pub fn with_background_color(mut self, value: Rgba<u8>) -> Self {
         self.background_color = value;
         self
     }
@@ -131,14 +129,14 @@ impl WordCloud {
 
 impl WordCloud {
     fn generate_from_word_positions(
-        rng: &mut StdRng,
+        rng: &mut WyRand,
         width: u32,
         height: u32,
         word_positions: Vec<Word>,
         scale: f32,
-        background_color: Rgb<u8>,
-        color_func: fn(&Word, &mut StdRng) -> Rgb<u8>
-    ) -> RgbImage {
+        background_color: Rgba<u8>,
+        color_func: fn(&Word, &mut WyRand) -> Rgba<u8>
+    ) -> RgbaImage {
         // TODO: Refactor this so that we can fail earlier
         if !(0.0..=100.0).contains(&scale) {
             // TODO: Idk if this is good practice
@@ -146,7 +144,7 @@ impl WordCloud {
             exit(1);
         }
 
-        let mut final_image_buffer = RgbImage::from_pixel((width as f32 * scale) as u32, (height as f32 * scale) as u32, background_color);
+        let mut final_image_buffer = RgbaImage::from_pixel((width as f32 * scale) as u32, (height as f32 * scale) as u32, background_color);
 
         for mut word in word_positions.into_iter() {
             let col = color_func(&word, rng);
@@ -161,7 +159,7 @@ impl WordCloud {
                 word.glyphs = text::text_to_glyphs(word.text, word.font, word.font_size);
             }
 
-            text::draw_glyphs_to_rgb_buffer(&mut final_image_buffer, word.glyphs, word.font, word.position, word.rotated, col);
+            text::draw_glyphs_to_rgba_buffer(&mut final_image_buffer, word.glyphs, word.font, word.position, word.rotated, col);
         }
 
         final_image_buffer
@@ -194,8 +192,8 @@ impl WordCloud {
         sat::Rect { width: glyphs.width + self.word_margin, height: glyphs.height + self.word_margin }
     }
 
-    pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbImage {
-        self.generate_from_text_with_color_func(text, size, scale, random_color_rgb)
+    pub fn generate_from_text(&self, text: &str, size: WordCloudSize, scale: f32) -> RgbaImage {
+        self.generate_from_text_with_color_func(text, size, scale, random_color_rgba)
     }
 
     pub fn generate_from_text_with_color_func(
@@ -203,8 +201,8 @@ impl WordCloud {
         text: &str,
         size: WordCloudSize,
         scale: f32,
-        color_func: fn(&Word, &mut StdRng) -> Rgb<u8>
-    ) -> RgbImage {
+        color_func: fn(&Word, &mut WyRand) -> Rgba<u8>
+    ) -> RgbaImage {
         let words = self.tokenizer.get_normalized_word_frequencies(text);
 
         let (mut summed_area_table, mut gray_buffer) = match size {
@@ -250,8 +248,8 @@ impl WordCloud {
         let mut last_freq = 1.0;
 
         let mut rng = match self.rng_seed {
-            Some(seed) => StdRng::seed_from_u64(seed),
-            None => StdRng::from_rng(thread_rng()).unwrap()
+            Some(seed) => WyRand::new_seed(seed),
+            None => WyRand::new(),
         };
 
         let first_word = words.first()
@@ -294,9 +292,11 @@ impl WordCloud {
 
             let initial_font_size = font_size;
 
-            let mut should_rotate = rng.gen_bool(self.word_rotate_chance);
+            let mut should_rotate = rng.generate::<u8>() <= (255 as f64 * self.word_rotate_chance) as u8;
             let mut tried_rotate = false;
             let mut glyphs;
+
+            let has_mask = matches!(WordCloudSize::FromMask, _size);
 
             let pos = loop {
                 glyphs = text::text_to_glyphs(word, &self.font, PxScale::from(font_size));
@@ -323,14 +323,14 @@ impl WordCloud {
 
                 if rect.width > gray_buffer.width() || rect.height > gray_buffer.height() {
                     if Self::check_font_size(&mut font_size, self.font_step, self.min_font_size) {
-                        continue
+                        continue;
                     }
                     else {
                         break 'outer;
                     };
                 }
 
-                if matches!(WordCloudSize::FromMask, _size) {
+                if has_mask {
                     match sat::find_space_for_rect_masked(&summed_area_table, gray_buffer.width(), gray_buffer.height(), &skip_list, &rect, &mut rng) {
                         Some(pos) => {
                             let half_margin = self.word_margin as f32 / 2.0;
@@ -415,19 +415,19 @@ impl WordCloud {
     }
 }
 
-fn random_color_rgb(_word: &Word, rng: &mut StdRng) -> Rgb<u8> {
-    let hue = rng.gen_range(0.0..255.0);
+fn random_color_rgba(_word: &Word, rng: &mut WyRand) -> Rgba<u8> {
+    let hue: u8 = rng.generate_range(0..255);
     // TODO: Python uses 0.8 for the saturation but it looks too washed out when used here
     //   Maybe something to do with the linear stuff?
     //   It's not really a problem just curious
     //   https://github.com/python-pillow/Pillow/blob/66209168847ad1b55190a629b49cc6ba829efe92/src/PIL/ImageColor.py#L83
-    let col = Hsl::new(hue, 1.0, 0.5);
+    let col = Hsl::new(hue as f32, 1.0, 0.5);
     let rgb: Srgb = col.into_color();
 
     let raw: [u8; 3] = rgb.into_format()
         .into_raw();
 
-    Rgb(raw)
+    Rgba([raw[0], raw[1], raw[2], 1])
 }
 
 // TODO: This doesn't seem particularly efficient
@@ -437,7 +437,10 @@ fn u8_to_u32_vec(buffer: &GrayImage, dst: &mut [u32]) {
     }
 }
 
-fn find_image_bounds(img: &GrayImage) -> Region {
+/// Crops the image to its boundaries
+///
+/// Useful for making the search space smaller when looking for a space to place a word
+fn _find_image_bounds(img: &GrayImage) -> Region {
     let mut min_x = img.width();
     let mut min_y = 0;
     let mut max_x = 0;
@@ -474,6 +477,9 @@ fn find_image_bounds(img: &GrayImage) -> Region {
     Region { x: min_x, y: min_y, width, height }
 }
 
+/// Finds the outline of a mask on the x axis
+///
+/// Useful for skipping white pixels that can't be used when looking for a space to place a word
 fn create_mask_skip_list(img: &GrayImage) -> Vec<(usize, usize)> {
     img.rows().map(|mut row| {
         let furthest_left = row.rposition(|p| p == &Luma::from([0])).unwrap_or(img.width() as usize);
