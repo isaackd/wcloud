@@ -57,7 +57,7 @@ fn main() {
 }
 ```
 
-![](images/cloud.png)
+![](examples/cloud.png)
 
 Examples of generating word clouds with masks, custom colors, and other features can be found in the `examples/` directory.
 
