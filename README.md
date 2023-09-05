@@ -61,6 +61,15 @@ fn main() {
 
 Examples of generating word clouds with masks, custom colors, and other features can be found in the `examples/` directory.
 
+## Gallery
+
+<p>
+<img src="examples/tlou1/tlou1.png" width="49%" />
+<img src="examples/tlou2/tlou2.png" width="49%" />
+    
+<img src="examples/custom_fonts/cloud.png" width="49%" />
+</p>
+
 ## Credit
 
 This project is largely based on the [word_cloud](https://github.com/amueller/word_cloud) project by [@amueller](https://github.com/amueller/). Comparatively, `wcloud` is missing the following features:
