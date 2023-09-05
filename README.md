@@ -1,4 +1,4 @@
-![Word cloud of the A New Hope movie script in the shape of a Stormtrooper helmet](https://github.com/isaackd/wcloud-dev/blob/main/examples/custom_colors/a_new_hope.png?raw=true)
+![Word cloud of the A New Hope movie script in the shape of a Stormtrooper helmet](examples/custom_colors/a_new_hope.png)
 
 # wcloud
 Generate beautiful word clouds with support for masks, custom fonts, custom coloring functions, and more.
