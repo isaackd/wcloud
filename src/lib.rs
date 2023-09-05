@@ -27,6 +27,8 @@ pub struct Word<'a> {
     pub glyphs: GlyphData,
     pub rotated: bool,
     pub position: Point,
+    pub frequency: f32,
+    pub index: usize,
 }
 
 // TODO: Figure out a better way to structure this
@@ -398,7 +400,9 @@ impl WordCloud {
                 font_size: PxScale::from(font_size),
                 glyphs: glyphs.clone(),
                 rotated: should_rotate,
-                position: pos
+                position: pos,
+                frequency: *freq,
+                index: final_words.len()
             });
 
             // TODO: Do a partial sat like the Python implementation
