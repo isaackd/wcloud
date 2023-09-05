@@ -1,5 +1,5 @@
 use ab_glyph::{point, Font, Glyph, Point, PxScale, ScaleFont, FontVec};
-use image::{GrayImage, Luma, Pixel, Rgb, RgbImage};
+use image::{GrayImage, Luma, Pixel, Rgb, Rgba, RgbaImage, RgbImage};
 
 #[derive(Clone, Debug)]
 pub struct GlyphData {
@@ -29,13 +29,13 @@ pub fn text_to_glyphs(text: &str, font: &FontVec, scale: PxScale) -> GlyphData {
     }
 }
 
-pub fn draw_glyphs_to_rgb_buffer(
-    buffer: &mut RgbImage,
+pub fn draw_glyphs_to_rgba_buffer(
+    buffer: &mut RgbaImage,
     glyph_data: GlyphData,
     font: &FontVec,
     point: Point,
     rotate: bool,
-    pixel: Rgb<u8>,
+    pixel: Rgba<u8>,
 ) {
     let width = glyph_data.width;
 
@@ -56,6 +56,10 @@ pub fn draw_glyphs_to_rgb_buffer(
                 px.apply2(&pixel, |old, new| {
                     ((v * new as f32) + (1.0 - v) * old as f32) as u8
                 });
+
+                if px != &Rgba::from([0; 4]) {
+                    px.0[3] = 0xFF;
+                }
             });
         }
     }

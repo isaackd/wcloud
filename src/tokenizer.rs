@@ -18,9 +18,14 @@ impl Default for Tokenizer {
         let regex = Regex::new("\\w[\\w']*")
             .expect("Unable to compile tokenization regex");
 
+        let filter = DEFAULT_EXCLUDE_WORDS_TEXT
+            .lines()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>();
+
         Tokenizer {
             regex,
-            filter: HashSet::new(),
+            filter,
             min_word_length: 0,
             exclude_numbers: true,
             max_words: 200,

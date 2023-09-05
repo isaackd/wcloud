@@ -1,0 +1,232 @@
+Computer font
+
+From Wikipedia, the free encyclopedia
+This article is about font technology. For information about the typographic appearance of individual font sets, see Typeface.
+
+This article includes a list of general references, but it lacks sufficient corresponding inline citations. Please help to improve this article by introducing more precise citations. (January 2014) (Learn how and when to remove this template message)
+Comparison between printed (top) and digital (bottom) versions of Perpetua
+
+A computer font is implemented as a digital data file containing a set of graphically related glyphs. A computer font is designed and created using a font editor. A computer font specifically designed for the computer screen, and not for printing, is a screen font.
+
+In the terminology of movable metal type, a font is a set of pieces of movable type in a specific typeface, size, width, weight, slope, etc. (for example, Gill Sans bold 12 point or Century Expanded 14 point), and a typeface refers to the collection of related fonts across styles and sizes (for example, all the varieties of Gill Sans). In HTML, CSS, and related technologies, the font family attribute refers to the digital equivalent of a typeface. Since the 1990s, many people use the word font as a synonym for typeface.
+
+There are three basic kinds of computer font file data formats:
+
+    Bitmap fonts consist of a matrix of dots or pixels representing the image of each glyph in each face and size.
+    Vector fonts (including, and sometimes used as a synonym for, outline fonts) use Bézier curves, drawing instructions and mathematical formulae to describe each glyph, which make the character outlines scalable to any size.
+    Stroke fonts use a series of specified lines and additional information to define the size and shape of the line in a specific typeface, which together determine the appearance of the glyph.
+
+Bitmap fonts are faster and easier to create in computer code than other font types, but they are not scalable: a bitmap font requires a separate font for each size.[1] Outline and stroke fonts can be resized in a single font by substituting different measurements for components of each glyph, but they are more complicated to render on screen or in print than bitmap fonts because they require additional computer code to render the bitmaps to display on screen and in print. Although all font types are still in use, most fonts used on computers today are outline fonts.
+
+Fonts can be monospaced (i.e. every character is plotted a constant distance from the previous character that it is next to, while drawing) or proportional (each character has its own width). However, the particular font-handling application can affect the spacing, particularly when justifying text.
+Font types
+Bitmap fonts
+An assortment of bitmap fonts from the first version of the Macintosh operating system
+
+A bitmap font is one that stores each glyph as an array of pixels (that is, a bitmap). It is less commonly known as a raster font or a pixel font. Bitmap fonts are simply collections of raster images of glyphs. For each variant of the font, there is a complete set of glyph images, with each set containing an image for each character. For example, if a font has three sizes, and any combination of bold and italic, then there must be 12 complete sets of images.
+
+Advantages of bitmap fonts include:
+
+    Extremely fast and simple to render
+    Easier to create than other kinds.
+    Unscaled bitmap fonts always give exactly the same output when displayed on the same specification display
+    Best for very low-quality or small-size displays where the font needs to be fine-tuned to display clearly
+
+The primary disadvantage of bitmap fonts is that the visual quality tends to be poor when scaled or otherwise transformed, compared to outline and stroke fonts, and providing many optimized and purpose-made sizes of the same font dramatically increases memory usage. The earliest bitmap fonts were only available in certain optimized sizes such as 8, 9, 10, 12, 14, 18, 24, 36, 48, 72, and 96 points (assuming a resolution of 96 DPI), with custom fonts often available in only one specific size, such as a headline font at only 72 points.
+
+The limited processing power and memory of early computer systems forced exclusive use of bitmap fonts. Improvements in hardware have allowed them to be replaced with outline or stroke fonts in cases where arbitrary scaling is desirable, but bitmap fonts are still in common use in embedded systems and other places where speed and simplicity are considered important.
+
+Bitmap fonts are used in the Linux console, the Windows recovery console, and embedded systems. Older dot matrix printers used bitmap fonts; often stored in the memory of the printer and addressed by the computer's print driver. Bitmap fonts may be used in cross-stitch.
+
+To draw a string using a bitmap font, means to successively output bitmaps of each character that the string comprises, performing per-character indentation.
+Monochrome fonts vis-à-vis fonts with shades of gray
+
+Digital bitmap fonts (and the final rendering of vector fonts) may use monochrome or shades of gray. The latter is anti-aliased. When displaying a text, typically an operating system properly represents the "shades of gray" as intermediate colors between the color of the font and that of the background. However, if the text is represented as an image with transparent background, "shades of gray" require an image format allowing partial transparency.
+Scaling
+
+Bitmap fonts look best at their native pixel size. Some systems using bitmap fonts can create some font variants algorithmically. For example, the original Apple Macintosh computer could produce bold by widening vertical strokes and oblique by shearing the image. At non-native sizes, many text rendering systems perform nearest-neighbor resampling, introducing rough jagged edges. More advanced systems perform anti-aliasing on bitmap fonts whose size does not match the size that the application requests. This technique works well for making the font smaller but not as well for increasing the size, as it tends to blur the edges. Some graphics systems that use bitmap fonts, especially those of emulators, apply curve-sensitive nonlinear resampling algorithms such as 2xSaI or hq3x on fonts and other bitmaps, which avoids blurring the font while introducing little objectionable distortion at moderate increases in size.
+
+The difference between bitmap fonts and outline fonts is similar to the difference between bitmap and vector image file formats. Bitmap fonts are like image formats such as Windows Bitmap (.bmp), Portable Network Graphics (.png) and Tagged Image Format (.tif or .tiff), which store the image data as a grid of pixels, in some cases with compression. Outline or stroke image formats such as Windows Metafile format (.wmf) and Scalable Vector Graphics format (.svg), store instructions in the form of lines and curves of how to draw the image rather than storing the image itself.
+
+A "trace" program can follow the outline of a high-resolution bitmap font and create an initial outline that a font designer uses to create an outline font useful in systems such as PostScript or TrueType. Outline fonts scale easily without jagged edges or blurriness.
+Bitmap font formats
+A bitmap color font for the Amiga OS
+
+    Portable Compiled Format (PCF)
+    Glyph Bitmap Distribution Format (BDF)
+    Server Normal Format (SNF)
+    DECWindows Font (DWF)
+    Sun X11/NeWS format (BF, AFM)
+    Microsoft Windows bitmapped font (FON)
+    Amiga Font, ColorFont, AnimFont
+    ByteMap Font (BMF)[2]
+    PC Screen Font (PSF)
+    Scalable Screen Font (SFN, also supports outline fonts)
+    Packed bitmap font bitmap file for TeX DVI drivers (PK)
+    FZX a proportional bitmap font for the ZX Spectrum[3]
+
+Outline fonts
+
+Outline fonts or vector fonts are collections of vector images, consisting of lines and curves defining the boundary of glyphs. Early vector fonts were used by vector monitors and vector plotters using their own internal fonts, usually with thin single strokes instead of thick outlined glyphs. The advent of desktop publishing brought the need for a common standard to integrate the graphical user interface of the first Macintosh and laser printers. The term to describe the integration technology was WYSIWYG (What You See Is What You Get). This common standard was (and still is[when?]) Adobe PostScript.[citation needed] Examples of outline fonts include: PostScript Type 1 and Type 3 fonts, TrueType, OpenType and Compugraphic.
+
+The primary advantage of outline fonts is that, unlike bitmap fonts, they are a set of lines and curves instead of pixels; they can be scaled without causing pixellation. Therefore, outline font characters can be scaled to any size and otherwise transformed with more attractive results than bitmap fonts, but require considerably more processing and may yield undesirable rendering, depending on the font, rendering software, and output size. Even so, outline fonts can be transformed into bitmap fonts beforehand if necessary. The converse transformation is considerably harder, since bitmap fonts requires heuristic algorithm to guess and approximate the corresponding curves if the pixels do not make a straight line.
+
+Outline fonts have a major problem, in that the Bézier curves used by them cannot be rendered accurately onto a raster display (such as most computer monitors and printers), and their rendering can change shape depending on the desired size and position.[4] Measures such as font hinting have to be used to reduce the visual impact of this problem, which require sophisticated software that is difficult to implement correctly. Many modern desktop computer systems include software to do this, but they use considerably more processing power than bitmap fonts, and there can be minor rendering defects, particularly at small font sizes. Despite this, they are frequently used because people often consider the ability to freely scale fonts, without incurring any pixellation, to be important enough to justify the defects and increased computational complexity.
+Outline font formats
+Type 1 and Type 3 fonts
+
+Type 1 and Type 3 fonts were developed by Adobe for professional digital typesetting. Using PostScript, the glyphs are outline fonts described with cubic Bezier curves. Type 1 fonts were restricted to a subset of the PostScript language, and used Adobe's hinting system, which used to be very expensive. Type 3 allowed unrestricted use of the PostScript language, but did not include any hint information, which could lead to visible rendering artifacts on low-resolution devices (such as computer screens and dot-matrix printers).
+TrueType fonts
+
+TrueType is a font system originally developed by Apple Inc. It was intended to replace Type 1 fonts, which many felt were too expensive. Unlike Type 1 fonts, TrueType glyphs are described with quadratic Bezier curves. It is currently very popular and implementations exist for all major operating systems.
+OpenType fonts
+
+OpenType is a smartfont system designed by Adobe and Microsoft. OpenType fonts contain outlines in either the TrueType or CFF format together with a wide range of metadata.
+Stroke-based fonts
+With stroke-based fonts, the same stroke paths can be filled with different stroke profiles resulting in different visual shapes without the need to specify the vertex positions of each outline, as is the case with outline fonts.
+
+A glyph's outline is defined by the vertices of individual stroke paths, and the corresponding stroke profiles. The stroke paths are a kind of topological skeleton of the glyph. The advantages of stroke-based fonts over outline fonts include reducing the number of vertices needed to define a glyph, allowing the same vertices to be used to generate a font with a different weight, glyph width, or serifs using different stroke rules, and the associated size savings. For a font developer, editing a glyph by stroke is easier and less prone to error than editing outlines. A stroke-based system also allows scaling glyphs in height or width without altering stroke thickness of the base glyphs. Stroke-based fonts are heavily marketed for East Asian markets for use on embedded devices, but the technology is not limited to ideograms.
+
+Commercial developers included Agfa Monotype (iType), Type Solutions, Inc. (owned by Bitstream Inc.) (Font Fusion (FFS), btX2), Fontworks (Gaiji Master), which have independently developed stroke-based font types and font engines.
+
+Although Monotype and Bitstream have claimed tremendous space saving using stroke-based fonts on East Asian character sets, most of the space saving comes from building composite glyphs, which is part of the TrueType specification and does not require a stroke-based approach.
+Stroke-based font formats
+
+Metafont uses a different sort of glyph description. Like TrueType, it is a vector font description system. It draws glyphs using strokes produced by moving a polygonal or elliptical pen approximated by a polygon along a path made from cubic composite Bézier curves and straight line segments, or by filling such paths. Although when stroking a path the envelope of the stroke is never actually generated, the method causes no loss of accuracy or resolution. The method Metafont uses is more mathematically complex because the parallel curves of a Bézier can be 10th order algebraic curves.[5]
+
+In 2004, DynaComware developed DigiType, a stroke-based font format. In 2006, the creators of the Saffron Type System announced a representation for stroke-based fonts called Stylized Stroke Fonts (SSFs) with the aim of providing the expressiveness of traditional outline-based fonts and the small memory footprint of uniform-width stroke-based fonts (USFs).[6]
+
+AutoCAD uses SHX/SHP fonts.
+Subsetting
+
+A typical font may contain hundreds or even thousands of glyphs, often representing characters from many different languages. Oftentimes, users may only need a small subset of the glyphs that are available to them. Subsetting is the process of removing unnecessary glyphs from a font file, usually with the goal of reducing file size. This is particularly important for web fonts, since reducing file size often means reducing page load time and server load. Alternatively, fonts may be issued in different files for different regions of the world, though with the spread of the OpenType format this is now increasingly uncommon.
+See also
+
+    Adobe Systems, Inc. v. Southern Software, Inc., a United States district court case regarding copyright protection for computer fonts
+    Apple Advanced Typography
+    Display typeface
+    Kerning
+    Font hinting
+    Fontlab
+    FontForge
+    FreeType
+    Intellectual property protection of typefaces
+    List of typefaces
+    OpenType
+    Typeface
+    Typesetting
+    TeX, LaTeX, and MetaPost
+    Saffron Type System, a high-quality anti-aliased text-rendering engine
+    Unicode typefaces
+    Web typography, includes methods of font embedding into websites
+
+References
+
+Gruber, John. "Anti-Anti-Aliasing". Daring Fireball. Archived from the original on 2015-09-01. Retrieved 5 September 2015.
+"BMF – ByteMap font format". BMF. Retrieved 9 June 2019.
+Einar Saukas and Andrew Owen (12 June 2013). "FZX: a new standard format and driver for proportional fonts". p. 1.
+Stamm, Beat (1998-03-25). "The raster tragedy at low resolution". Microsoft. Archived from the original on 2016-02-19. Retrieved 2015-08-10.
+Mark Kilgard (10 April 2012). "Vector Graphics & Path Rendering". p. 28. Archived from the original on 2014-08-13. Retrieved 2014-08-19.
+
+    Jakubiak, Elena J.; Perry, Ronald N.; Frisken, Sarah F. An Improved Representation for Stroke-based Fonts. SIGGRAPH 2006.
+
+Further reading
+
+    Wright, T. (1998). "History and technology of computer fonts". IEEE Annals of the History of Computing. 20 (2): 30–34. doi:10.1109/85.667294.
+
+External links
+
+    Finding Fonts FAQ (Microsoft)
+    Font Technologies chapter of the LDP's Font-HOWTO
+    Microsoft's font guide
+    Glossary of Font Terms Over 50 entries with helpful diagram
+
+    vte
+
+Typography
+Page
+
+    Canons of page construction Column Even working Margin Page numbering Paper size Pagination Pull quote Recto and verso Intentionally blank page
+
+Paragraph
+
+    Alignment Leading River Runaround Widows and orphans
+
+Character
+Typeface anatomy
+
+    Counter Diacritics Dingbat Glyph Ink trap Ligature Rotation Subscript and superscript Swash Text figures Tittle
+
+Capitalization
+
+    All caps Camel case Initial Letter case Small caps Snake case
+
+Visual distinction
+
+    Italics Oblique Bold Color printing Underline Blackboard bold Blackletter
+
+Horizontal aspects
+
+    Figure space Kerning Letter-spacing Paren space Sentence spacing Space Thin space
+
+Vertical aspects
+
+    Ascender Baseline Body height Cap height Descender Median Overshoot x-height
+
+Typeface
+classifications
+Roman type
+
+    Serif (Antiqua, Didone, slab serif) Sans-serif
+
+Blackletter type
+
+    Fraktur Rotunda Schwabacher
+
+Gaelic type
+
+    Insular Uncial
+
+Specialist
+
+    Record type Display typeface (script, fat face, reverse-contrast)
+
+Punctuation
+
+    Dashes Hanging punctuation Hyphen-minus Hyphenation Prime mark Quotation mark
+
+Typesetting
+
+    Etaoin shrdlu Font
+        computer monospaced Font catalog For position only Letterpress Lorem ipsum Microprinting Microtypography Movable type Pangram Phototypesetting Punchcutting Reversing type Type color Type design Typeface
+        list
+
+Typographic units
+
+    Agate Cicero Em En Measure Pica Point
+        traditional point-size names Proposed metric units Twip
+
+Digital typography
+
+    Character encoding Hinting Rasterization Typographic features Web typography Bézier curves Desktop publishing
+
+Related articles
+
+    Calligraphy Handwriting Type design Style guide Type foundry History of Western typography Intellectual property protection of typefaces Technical lettering Vox-ATypI classification
+
+Related tables
+
+    Punctuation and other typographic symbols
+
+    Category
+
+Category:
+
+    Digital typography
+
+    This page was last edited on 24 August 2023, at 22:55 (UTC).
+    Text is available under the Creative Commons Attribution-ShareAlike License 4.0; additional terms may apply. By using this site, you agree to the Terms of Use and Privacy Policy. Wikipedia® is a registered trademark of the Wikimedia Foundation, Inc., a non-profit organization.
+
+    Wikimedia Foundation
+    Powered by MediaWiki
+

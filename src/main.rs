@@ -5,7 +5,7 @@ use regex::Regex;
 use std::fs;
 use std::collections::HashSet;
 use image::codecs::png::PngEncoder;
-use image::{ImageEncoder, ColorType, Rgb};
+use image::{ImageEncoder, ColorType, Rgba};
 use ab_glyph::FontVec;
 use csscolorparser::Color;
 
@@ -162,10 +162,10 @@ fn main() {
                 .unwrap_or(Color::new(0.0, 0.0, 0.0, 1.0))
                 .to_rgba8();
 
-            Rgb([col[0], col[1], col[2]])
+            Rgba(col)
         }
         None => {
-            Rgb([0, 0, 0])
+            Rgba([0, 0, 0, 0])
         }
     };
 
@@ -242,20 +242,6 @@ fn main() {
         buffer
     };
 
-
-//     let text = "of course it was a disaster.
-// that unbearable, dearest secret
-// has always been a disaster.
-// the danger when we try to leave.
-// going over and over afterward
-// what we should have done
-// instead of what we did.
-// but for those short times
-// we seemed to be alive. misled,
-// misused, lied to and cheated,
-// certainly. still, for that
-// little while, we visited
-// our possible life.";
 
     let wordcloud_image = wordcloud.generate_from_text(&text, wordcloud_size, scale);
 
