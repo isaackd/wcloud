@@ -377,9 +377,9 @@ dependencies = [
 
 [[package]]
 name = "four-cc"
-version = "0.2.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d73a076bdabd78c2f9045dba1b90664a655fa8372581c238596e1eb3a5e1b7"
+checksum = "3958af68a31b1d1384d3f39b6aa33eb14b6009065b5ca305ddd9712a4237124f"
 
 [[package]]
 name = "funty"
@@ -1218,7 +1218,8 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "woff2"
 version = "0.3.0"
-source = "git+https://github.com/isaackd/woff2-rs.git#6560fea81b97b4c6660d0c5a68b4c37f24a4dd78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "229550ab757fe4d35fee250285f627e157babb7c7da8b53b28ab5ba20cdec57c"
 dependencies = [
  "bitvec",
  "brotli",
