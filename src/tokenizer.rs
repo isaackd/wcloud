@@ -183,7 +183,8 @@ mod tests {
     fn simple_word_frequencies() {
         let words = "A woodchuck would chuck as much wood as a woodchuck could chuck if a woodchuck could chuck wood";
 
-        let tokenizer = Tokenizer::default();
+        let tokenizer = Tokenizer::default()
+            .with_filter(HashSet::new());
         let frequencies = tokenizer.get_word_frequencies(words);
 
         let expected: HashMap<&str, usize> = vec![
@@ -200,6 +201,7 @@ mod tests {
         let words = "A a wood chuck could could Could ChuCK";
 
         let tokenizer = Tokenizer::default()
+            .with_filter(HashSet::new())
             .with_repeat(true)
             .with_max_words(12);
         let frequencies = tokenizer.get_normalized_word_frequencies(words);
